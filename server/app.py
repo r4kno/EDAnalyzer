@@ -33,15 +33,24 @@ def process_file():
         # Step 2: Perform AI-guided EDA
         result = perform_eda_with_visualizations(df, analysis_request)
         
+        # Determine message based on AI usage
+        ai_used = result.get('ai_analysis_used', False)
+        if ai_used:
+            message = "Analysis complete with AI-guided insights! 🤖📊"
+        else:
+            message = "Analysis complete with comprehensive insights! 📊"
+        
         # Return comprehensive results
         return jsonify({
-            "message": "Analysis complete with AI-guided insights! 🤖📊",
+            "message": message,
             "original_shape": list(df.shape),
             "cleaned_shape": list(result['cleaned_data'].shape),
             "cleaning_report": result['cleaning_report'],
             "summary": result['summary'],
             "plots": result['visualizations'],
             "ai_insights": result['ai_recommendations'],
+            "ai_analysis_used": result['ai_analysis_used'],
+            "ai_details": result['ai_details'],
             "file_url": file_link
         })
         

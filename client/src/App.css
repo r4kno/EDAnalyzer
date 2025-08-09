@@ -587,87 +587,113 @@
   -webkit-text-fill-color: transparent;
 }
 
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2rem;
-}
-
-.summary-card {
-  background: rgba(255, 255, 255, 0.1);
-  padding: 1.5rem;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.cleaning-report {
-  background: rgba(255, 255, 255, 0.1);
-  padding: 1.5rem;
-  border-radius: 12px;
-  margin-bottom: 2rem;
-}
-
-.cleaning-items {
+.results-subtitle-container {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 0.5rem;
 }
 
-.cleaning-item {
-  display: flex;
-  justify-content: space-between;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.plots-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-  gap: 2rem;
-}
-
-.plot-card {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.plot-header {
-  padding: 1.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.plot-title {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.25rem;
-}
-
-.plot-description {
-  margin: 0;
-  opacity: 0.8;
+.ai-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
   font-size: 0.9rem;
+  font-weight: 600;
+  border: 1px solid;
 }
 
-.plot-container {
-  padding: 1rem;
+.ai-status-badge.ai-enabled {
+  background: linear-gradient(135deg, #4ecdc4, #44a08d);
+  color: white;
+  border-color: #4ecdc4;
+  box-shadow: 0 2px 10px rgba(78, 205, 196, 0.3);
+}
+
+.ai-status-badge.ai-disabled {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ccc;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.ai-icon {
+  font-size: 1.1rem;
+}
+
+.ai-summary-card {
+  background: linear-gradient(135deg, rgba(78, 205, 196, 0.1), rgba(68, 160, 141, 0.1));
+  border: 1px solid rgba(78, 205, 196, 0.3);
+}
+
+.ai-details {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
-.plot-image {
-  max-width: 100%;
-  height: auto;
-  border-radius: 8px;
+.ai-feature {
+  background: rgba(78, 205, 196, 0.2);
+  color: #4ecdc4;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.ai-insights-toggle-section {
+  margin-top: 3rem;
+  border-top: 2px solid rgba(255, 255, 255, 0.1);
+  padding-top: 2rem;
+}
+
+.ai-insights-toggle-btn {
+  width: 100%;
+  background: rgba(78, 205, 196, 0.1);
+  border: 1px solid rgba(78, 205, 196, 0.3);
+  color: #4ecdc4;
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.ai-insights-toggle-btn:hover {
+  background: rgba(78, 205, 196, 0.2);
+  border-color: rgba(78, 205, 196, 0.5);
+  transform: translateY(-2px);
+}
+
+.toggle-icon {
+  font-size: 1.2rem;
+  transition: transform 0.3s ease;
 }
 
 .ai-insights-section {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(78, 205, 196, 0.05);
+  border: 1px solid rgba(78, 205, 196, 0.2);
   border-radius: 12px;
   padding: 2rem;
-  margin-bottom: 2rem;
+  margin-top: 1rem;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .ai-insights-section h3 {
@@ -676,6 +702,7 @@
   font-size: 1.5rem;
 }
 
+/* Keep existing AI insights styles */
 .insights-card {
   background: rgba(255, 255, 255, 0.08);
   border-radius: 8px;

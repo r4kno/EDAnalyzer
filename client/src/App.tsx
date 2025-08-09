@@ -39,6 +39,7 @@ const ResultsView: React.FC<{
 }> = ({ results, onBackToUpload }) => {
   const plots = results.plots || {};
   const aiInsights = results.ai_insights || {};
+  const [showAIInsights, setShowAIInsights] = useState<boolean>(false);
   
   // Dynamic plot configurations based on actual plots returned
   const availablePlots = Object.keys(plots).map(key => {
@@ -71,7 +72,23 @@ const ResultsView: React.FC<{
         </button>
         <div className="results-title-section">
           <h1 className="results-title">Analysis Results</h1>
-          <p className="results-subtitle">{results.message}</p>
+          <div className="results-subtitle-container">
+            <p className="results-subtitle">{results.message}</p>
+            {/* AI Status Badge */}
+            <div className={`ai-status-badge ${results.ai_analysis_used ? 'ai-enabled' : 'ai-disabled'}`}>
+              {results.ai_analysis_used ? (
+                <>
+                  <span className="ai-icon">🤖</span>
+                  AI-Enhanced Analysis
+                </>
+              ) : (
+                <>
+                  <span className="ai-icon">📊</span>
+                  Standard Analysis
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -89,62 +106,16 @@ const ResultsView: React.FC<{
           <h4>Data Quality</h4>
           <p>{Math.round(((results.cleaned_shape[0] / results.original_shape[0]) * 100))}% retained</p>
         </div>
+        {results.ai_analysis_used && (
+          <div className="summary-card ai-summary-card">
+            <h4>AI Analysis</h4>
+            <div className="ai-details">
+              {results.ai_details?.cleaning_ai_used && <span className="ai-feature">Smart Cleaning</span>}
+              {results.ai_details?.visualization_ai_used && <span className="ai-feature">Smart Plots</span>}
+            </div>
+          </div>
+        )}
       </div>
-
-      {/* AI Insights Section - NEW! */}
-      {aiInsights.key_insights_to_explore && (
-        <div className="ai-insights-section">
-          <h3>🤖 AI-Generated Insights</h3>
-          
-          {/* Key Insights */}
-          {aiInsights.key_insights_to_explore?.length > 0 && (
-            <div className="insights-card">
-              <h4>Key Insights to Explore</h4>
-              <ul className="insights-list">
-                {aiInsights.key_insights_to_explore.map((insight: string, index: number) => (
-                  <li key={index} className="insight-item">{insight}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Recommended Plot Insights */}
-          {aiInsights.recommended_plots?.length > 0 && (
-            <div className="insights-card">
-              <h4>AI Visualization Recommendations</h4>
-              <div className="plot-recommendations">
-                {aiInsights.recommended_plots.map((plot: any, index: number) => (
-                  <div key={index} className="plot-recommendation">
-                    <div className="plot-rec-header">
-                      <span className="plot-type-badge">{plot.plot_type}</span>
-                      <span className={`priority-badge priority-${plot.priority}`}>
-                        {plot.priority} priority
-                      </span>
-                    </div>
-                    <h5>{plot.title}</h5>
-                    <p className="plot-rec-description">{plot.description}</p>
-                    {plot.columns && (
-                      <p className="plot-columns">Columns: {plot.columns.join(', ')}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Suggested Groupings */}
-          {aiInsights.suggested_groupings?.length > 0 && (
-            <div className="insights-card">
-              <h4>Suggested Data Groupings</h4>
-              <ul className="groupings-list">
-                {aiInsights.suggested_groupings.map((grouping: string, index: number) => (
-                  <li key={index} className="grouping-item">{grouping}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Cleaning Report */}
       <div className="cleaning-report">
@@ -159,7 +130,7 @@ const ResultsView: React.FC<{
         </div>
       </div>
 
-      {/* Dynamic Plots Grid */}
+      {/* Plots Grid */}
       <div className="plots-section">
         <h2 className="plots-title">
           Data Visualizations {availablePlots.length > 0 && `(${availablePlots.length} plots)`}
@@ -175,6 +146,73 @@ const ResultsView: React.FC<{
           ))}
         </div>
       </div>
+
+      {/* AI Insights Section - At Bottom with Toggle */}
+      {results.ai_analysis_used && (aiInsights.key_insights_to_explore?.length > 0 || aiInsights.recommended_plots?.length > 0 || aiInsights.suggested_groupings?.length > 0) && (
+        <div className="ai-insights-toggle-section">
+          <button 
+            className="ai-insights-toggle-btn"
+            onClick={() => setShowAIInsights(!showAIInsights)}
+          >
+            <span className="toggle-icon">{showAIInsights ? '🔽' : '🔼'}</span>
+            {showAIInsights ? 'Hide AI Insights & Recommendations' : 'Show AI Insights & Recommendations'}
+          </button>
+          
+          {showAIInsights && (
+            <div className="ai-insights-section">
+              <h3>🤖 AI-Generated Insights & Recommendations</h3>
+              
+              {/* Key Insights */}
+              {aiInsights.key_insights_to_explore?.length > 0 && (
+                <div className="insights-card">
+                  <h4>Key Insights to Explore</h4>
+                  <ul className="insights-list">
+                    {aiInsights.key_insights_to_explore.map((insight: string, index: number) => (
+                      <li key={index} className="insight-item">{insight}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Recommended Plot Insights */}
+              {aiInsights.recommended_plots?.length > 0 && (
+                <div className="insights-card">
+                  <h4>AI Visualization Recommendations</h4>
+                  <div className="plot-recommendations">
+                    {aiInsights.recommended_plots.map((plot: any, index: number) => (
+                      <div key={index} className="plot-recommendation">
+                        <div className="plot-rec-header">
+                          <span className="plot-type-badge">{plot.plot_type}</span>
+                          <span className={`priority-badge priority-${plot.priority}`}>
+                            {plot.priority} priority
+                          </span>
+                        </div>
+                        <h5>{plot.title}</h5>
+                        <p className="plot-rec-description">{plot.description}</p>
+                        {plot.columns && (
+                          <p className="plot-columns">Columns: {plot.columns.join(', ')}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Suggested Groupings */}
+              {aiInsights.suggested_groupings?.length > 0 && (
+                <div className="insights-card">
+                  <h4>Suggested Data Groupings</h4>
+                  <ul className="groupings-list">
+                    {aiInsights.suggested_groupings.map((grouping: string, index: number) => (
+                      <li key={index} className="grouping-item">{grouping}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

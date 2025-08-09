@@ -110,6 +110,7 @@ class SmartDataCleaner:
         self.original_df = df.copy()
         self.cleaning_report = {}
         self.user_context = user_context
+        self.ai_used = False  # Track if AI was used
     
     def auto_clean(self):
         """AI-guided adaptive cleaning based on data characteristics"""
@@ -119,12 +120,13 @@ class SmartDataCleaner:
         # Apply recommended cleaning steps
         self.apply_ai_recommendations(cleaning_strategy)
         
-        return self.df, self.cleaning_report
+        return self.df, self.cleaning_report, self.ai_used  # Return AI usage flag
     
     def get_ai_cleaning_strategy(self):
         """Get AI recommendations for data cleaning"""
         if model is None:
             print("AI model not available, using fallback strategy")
+            self.ai_used = False
             return self.fallback_strategy()
         
         try:
@@ -174,10 +176,13 @@ class SmartDataCleaner:
             # Extract JSON from response
             json_match = re.search(r'\{.*\}', response.text, re.DOTALL)
             if json_match:
+                self.ai_used = True  # AI successfully used
                 return json.loads(json_match.group())
+            self.ai_used = False
             return self.fallback_strategy()
         except Exception as e:
             print(f"AI recommendation failed: {e}")
+            self.ai_used = False
             return self.fallback_strategy()
     
     def prepare_data_context(self):
@@ -445,6 +450,7 @@ def generate_ai_guided_visualizations(df, cleaned_df, user_context=""):
     sns.set_palette("husl")
     
     plots = {}
+    ai_viz_used = False
     
     # Always include data overview
     plots['data_overview'] = create_data_overview_plot(df, cleaned_df)
@@ -452,6 +458,10 @@ def generate_ai_guided_visualizations(df, cleaned_df, user_context=""):
     try:
         # Get AI recommendations
         viz_recommendations = get_ai_visualization_recommendations(cleaned_df, user_context)
+        
+        # Check if AI was actually used for recommendations
+        if model is not None and viz_recommendations.get("recommended_plots"):
+            ai_viz_used = True
         
         # Generate some AI-recommended plots if available
         for rec in viz_recommendations.get("recommended_plots", []):
@@ -477,6 +487,7 @@ def generate_ai_guided_visualizations(df, cleaned_df, user_context=""):
     except Exception as e:
         print(f"AI visualization failed: {e}")
         viz_recommendations = get_fallback_visualization_plan(cleaned_df)
+        ai_viz_used = False
     
     # Always add comprehensive fallback plots (your original good plots)
     try:
@@ -501,7 +512,7 @@ def generate_ai_guided_visualizations(df, cleaned_df, user_context=""):
     except Exception as e:
         print(f"Error creating fallback plots: {e}")
     
-    return plots, viz_recommendations
+    return plots, viz_recommendations, ai_viz_used
 
 # Enhanced data summary and cleaning functions
 def get_data_summary(df):
@@ -575,11 +586,12 @@ def smart_data_cleaning(df, user_context=""):
     """Main function that uses AI-guided SmartDataCleaner with fallback"""
     try:
         cleaner = SmartDataCleaner(df, user_context)
-        cleaned_df, report = cleaner.auto_clean()
-        return cleaned_df, report
+        cleaned_df, report, ai_used = cleaner.auto_clean()
+        return cleaned_df, report, ai_used
     except Exception as e:
         print(f"Smart cleaning failed, using basic cleaning: {e}")
-        return basic_data_cleaning(df)
+        cleaned_df, report = basic_data_cleaning(df)
+        return cleaned_df, report, False  # AI not used
 
 def basic_data_cleaning(df):
     """Basic cleaning logic as fallback - FIXED pandas warnings"""
@@ -802,20 +814,28 @@ def perform_eda_with_visualizations(df, user_context=""):
     
     try:
         # Clean the data with AI guidance (falls back to basic cleaning if AI fails)
-        cleaned_df, cleaning_report = smart_data_cleaning(df, user_context)
+        cleaned_df, cleaning_report, ai_cleaning_used = smart_data_cleaning(df, user_context)
         
         # Generate visualizations (AI-guided with comprehensive fallback)
-        plots, viz_recommendations = generate_ai_guided_visualizations(df, cleaned_df, user_context)
+        plots, viz_recommendations, ai_viz_used = generate_ai_guided_visualizations(df, cleaned_df, user_context)
         
         # Get summary
         summary = get_data_summary(cleaned_df)
+        
+        # Determine overall AI usage
+        ai_analysis_used = ai_cleaning_used or ai_viz_used
         
         return {
             'cleaned_data': cleaned_df,
             'cleaning_report': cleaning_report,
             'summary': summary,
             'visualizations': plots,
-            'ai_recommendations': viz_recommendations
+            'ai_recommendations': viz_recommendations,
+            'ai_analysis_used': ai_analysis_used,
+            'ai_details': {
+                'cleaning_ai_used': ai_cleaning_used,
+                'visualization_ai_used': ai_viz_used
+            }
         }
     
     except Exception as e:
@@ -847,6 +867,11 @@ def emergency_fallback_eda(df):
                 'recommended_plots': [],
                 'key_insights_to_explore': ['Emergency fallback analysis completed'],
                 'suggested_groupings': []
+            },
+            'ai_analysis_used': False,
+            'ai_details': {
+                'cleaning_ai_used': False,
+                'visualization_ai_used': False
             }
         }
     except Exception as e:
@@ -860,5 +885,10 @@ def emergency_fallback_eda(df):
                 'recommended_plots': [],
                 'key_insights_to_explore': ['Analysis failed'],
                 'suggested_groupings': []
+            },
+            'ai_analysis_used': False,
+            'ai_details': {
+                'cleaning_ai_used': False,
+                'visualization_ai_used': False
             }
         }
