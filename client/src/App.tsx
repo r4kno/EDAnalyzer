@@ -21,7 +21,6 @@ const ResultsView: React.FC<{
   const [showAIInsights, setShowAIInsights] = useState<boolean>(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState<boolean>(false);
   
-  // Dynamic plot configurations based on actual plots returned
   const availablePlots = Object.keys(plots).map(key => {
     if (key === 'data_overview') {
       return { key, title: 'Data Overview', description: 'Original vs cleaned data comparison' };
@@ -49,11 +48,10 @@ const ResultsView: React.FC<{
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 15; // Reduced margin for better space utilization
+      const margin = 15;
       let yPosition = margin;
       let currentPage = 1;
 
-      // Helper function to add footer
       const addFooter = (pageNum: number) => {
         pdf.setFontSize(9);
         pdf.setTextColor(100, 100, 100);
@@ -65,8 +63,6 @@ const ResultsView: React.FC<{
         pdf.text(`Page ${pageNum}`, pageWidth - margin - 15, pageHeight - 8);
       };
 
-
-      // Helper function to check if new page is needed
       const checkNewPage = (requiredHeight: number, forceNewPage = false) => {
         if (yPosition + requiredHeight > pageHeight - 20 || forceNewPage) {
           addFooter(currentPage);
@@ -78,7 +74,6 @@ const ResultsView: React.FC<{
         return false;
       };
 
-      // Helper function to get image dimensions
       const getImageDimensions = (base64String: string): Promise<{width: number, height: number}> => {
         return new Promise((resolve) => {
           const img = new Image();
@@ -89,7 +84,6 @@ const ResultsView: React.FC<{
         });
       };
 
-      // Title Page
       pdf.setFontSize(28);
       pdf.setTextColor(59, 130, 246);
       pdf.text('ED Analyzer', pageWidth / 2, 50, { align: 'center' });
@@ -102,19 +96,16 @@ const ResultsView: React.FC<{
       pdf.setTextColor(128, 128, 128);
       pdf.text(`Generated on ${new Date().toLocaleDateString()}`, pageWidth / 2, 85, { align: 'center' });
       
-      // Add a decorative line
       pdf.setLineWidth(0.5);
       pdf.setDrawColor(59, 130, 246);
       pdf.line(pageWidth / 2 - 30, 95, pageWidth / 2 + 30, 95);
       
       yPosition = 120;
 
-      // Executive Summary Section
       pdf.setFontSize(16);
       pdf.setTextColor(0, 0, 0);
       pdf.text('Executive Summary', margin, yPosition);
       
-      // Add underline
       pdf.setLineWidth(0.3);
       pdf.setDrawColor(59, 130, 246);
       pdf.line(margin, yPosition + 2, margin + 50, yPosition + 2);
@@ -127,7 +118,6 @@ const ResultsView: React.FC<{
       pdf.text(splitSummary, margin, yPosition);
       yPosition += splitSummary.length * 5 + 15;
 
-      // Data Summary Section - Compact table
       checkNewPage(45);
       pdf.setFontSize(14);
       pdf.setTextColor(0, 0, 0);
@@ -136,7 +126,6 @@ const ResultsView: React.FC<{
       pdf.line(margin, yPosition + 2, margin + 35, yPosition + 2);
       yPosition += 12;
 
-      // Create a more compact summary table
       const summaryData = [
         ['Original Data', `${results.original_shape[0]} rows × ${results.original_shape[1]} columns`],
         ['Cleaned Data', `${results.cleaned_shape[0]} rows × ${results.cleaned_shape[1]} columns`],
@@ -154,7 +143,6 @@ const ResultsView: React.FC<{
       });
       yPosition += 10;
 
-      // Data Cleaning Summary - More compact
       if (results.cleaning_report && Object.keys(results.cleaning_report).length > 0) {
         checkNewPage(40);
         pdf.setFontSize(14);
@@ -169,14 +157,13 @@ const ResultsView: React.FC<{
 
         for (let i = 0; i < midPoint; i++) {
           const [key, value] = cleaningEntries[i];
-          const wrappedValue = pdf.splitTextToSize(String(value), 40); // wrap to 40 width
+          const wrappedValue = pdf.splitTextToSize(String(value), 40);
 
           pdf.setTextColor(80, 80, 80);
           pdf.text(`${key.replace('_', ' ')}:`, margin, yPosition);
           pdf.setTextColor(0, 0, 0);
           pdf.text(wrappedValue, margin + 50, yPosition);
 
-          // Second column
           if (cleaningEntries[i + midPoint]) {
             const [key2, value2] = cleaningEntries[i + midPoint];
             const wrappedValue2 = pdf.splitTextToSize(String(value2), 40);
@@ -187,7 +174,6 @@ const ResultsView: React.FC<{
             pdf.text(wrappedValue2, margin + 150, yPosition);
           }
 
-          // Adjust yPosition to the tallest wrapped text in this row
           const rowHeight = Math.max(
             pdf.getTextDimensions(wrappedValue).h * wrappedValue.length,
             cleaningEntries[i + midPoint]
@@ -205,7 +191,6 @@ const ResultsView: React.FC<{
         yPosition += 10;
       }
 
-      // Visualizations Section - New page for better presentation
       checkNewPage(0, true);
       pdf.setFontSize(18);
       pdf.setTextColor(59, 130, 246);
@@ -213,33 +198,27 @@ const ResultsView: React.FC<{
       pdf.line(pageWidth / 2 - 40, yPosition + 3, pageWidth / 2 + 40, yPosition + 3);
       yPosition += 20;
 
-      // Process plots with dynamic sizing
       for (let i = 0; i < availablePlots.length; i++) {
         const config = availablePlots[i];
         
         try {
-          // Get actual image dimensions
           const imageDimensions = await getImageDimensions(plots[config.key]);
           
-          // Calculate optimal dimensions while maintaining aspect ratio
           const maxWidth = pageWidth - 2 ;
-          const maxHeight = 200; // Maximum height per plot
+          const maxHeight = 200;
           
           const aspectRatio = imageDimensions.width / imageDimensions.height;
           let imgWidth = maxWidth;
           let imgHeight = imgWidth / aspectRatio;
           
-          // If height exceeds maximum, adjust width accordingly
           if (imgHeight > maxHeight) {
             imgHeight = maxHeight;
             imgWidth = imgHeight * aspectRatio;
           }
           
-          // Check if we need a new page
-          const requiredSpace = imgHeight + 25; // Image + title space
+          const requiredSpace = imgHeight + 25;
           checkNewPage(requiredSpace);
 
-          // Plot title and description - more compact
           pdf.setFontSize(12);
           pdf.setTextColor(0, 0, 0);
           pdf.text(config.title, margin, yPosition);
@@ -251,17 +230,14 @@ const ResultsView: React.FC<{
           pdf.text(descText, margin, yPosition);
           yPosition += descText.length * 3 + 5;
 
-          // Center the image horizontally
           const xPosition = (pageWidth - imgWidth) / 2;
           
-          // Add the image
           const imgData = `data:image/png;base64,${plots[config.key]}`;
           pdf.addImage(imgData, 'PNG', xPosition, yPosition, imgWidth, imgHeight);
           yPosition += imgHeight + 15;
 
         } catch (error) {
           console.error('Error adding image to PDF:', error);
-          // Fallback for broken images
           checkNewPage(25);
           pdf.setFontSize(12);
           pdf.setTextColor(0, 0, 0);
@@ -275,7 +251,6 @@ const ResultsView: React.FC<{
         }
       }
 
-      // AI Insights Section - Only if available and substantial
       if (results.ai_analysis_used && aiInsights.key_insights_to_explore?.length > 0) {
         checkNewPage(0, true);
         
@@ -285,7 +260,6 @@ const ResultsView: React.FC<{
         pdf.line(pageWidth / 2 - 35, yPosition + 3, pageWidth / 2 + 35, yPosition + 3);
         yPosition += 20;
 
-        // Key Insights - More compact formatting
         pdf.setFontSize(12);
         pdf.setTextColor(0, 0, 0);
         pdf.text('Key Findings', margin, yPosition);
@@ -302,7 +276,6 @@ const ResultsView: React.FC<{
           yPosition += insightText.length * 4 + 3;
         });
 
-        // Visualization Recommendations - Condensed format
         if (aiInsights.recommended_plots?.length > 0) {
           yPosition += 8;
           checkNewPage(30);
@@ -314,7 +287,7 @@ const ResultsView: React.FC<{
 
           pdf.setFontSize(9);
           pdf.setTextColor(60, 60, 60);
-          aiInsights.recommended_plots.slice(0, 5).forEach((plot: any, index: number) => { // Limit to top 5 recommendations
+          aiInsights.recommended_plots.slice(0, 5).forEach((plot: any, index: number) => {
             checkNewPage(15);
             pdf.text(`${index + 1}. ${plot.title} (${plot.plot_type})`, margin, yPosition);
             yPosition += 5;
@@ -326,10 +299,8 @@ const ResultsView: React.FC<{
         }
       }
 
-      // Add footer to last page
       addFooter(currentPage);
 
-      // Save the PDF with timestamp
       const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
       const fileName = `EDA_Report_${timestamp}.pdf`;
       pdf.save(fileName);
@@ -344,7 +315,6 @@ const ResultsView: React.FC<{
 
   return (
     <div className="results-app-container">
-      {/* Animated Background Elements - Same as home */}
       <div className="floating-bg">
         {Array.from({ length: 15 }, (_, i) => (
           <div
@@ -362,11 +332,9 @@ const ResultsView: React.FC<{
         ))}
       </div>
 
-      {/* Grid Pattern Overlay */}
       <div className="grid-overlay" />
 
       <div className="results-main-content">
-        {/* Header Section */}
         <div className="results-header-section">
           <div className="buttons" style={{
             width: '100%',
@@ -410,7 +378,6 @@ const ResultsView: React.FC<{
             {results.message}
           </p>
 
-          {/* AI Status Badge */}
           <div className={`results-ai-status-badge ${results.ai_analysis_used ? 'ai-enabled' : 'ai-disabled'}`}>
             {results.ai_analysis_used ? (
               <>
@@ -426,7 +393,6 @@ const ResultsView: React.FC<{
           </div>
         </div>
 
-        {/* Summary Cards */}
         <div className="results-summary-grid">
           <div className="results-summary-card">
             <div className="summary-icon-wrapper summary-blue">
@@ -474,7 +440,6 @@ const ResultsView: React.FC<{
           )}
         </div>
 
-        {/* Plots Section */}
         <div className="results-plots-section">
           <div className="plots-section-header">
             <h2 className="plots-section-title">
@@ -498,14 +463,12 @@ const ResultsView: React.FC<{
                     alt={config.title}
                     className="plot-card-image"
                   />
-                 
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Enhanced AI Insights Section - At Bottom with Toggle */}
         <div className="enhanced-insights-toggle-section">
           <button 
             className="enhanced-insights-toggle-btn"
@@ -533,7 +496,6 @@ const ResultsView: React.FC<{
           
           {showAIInsights && (
             <div className="enhanced-insights-section">
-              {/* Data Cleaning Summary - Moved here */}
               <div className="insights-card cleaning-summary-card">
                 <div className="insights-card-header">
                   <div className="insights-icon-wrapper cleaning-icon">
@@ -554,10 +516,8 @@ const ResultsView: React.FC<{
                 </div>
               </div>
 
-              {/* AI Insights - Only if AI was used */}
               {results.ai_analysis_used && (
                 <>
-                  {/* Key Insights */}
                   {aiInsights.key_insights_to_explore?.length > 0 && (
                     <div className="insights-card">
                       <div className="insights-card-header">
@@ -580,7 +540,6 @@ const ResultsView: React.FC<{
                     </div>
                   )}
 
-                  {/* Recommended Plot Insights */}
                   {aiInsights.recommended_plots?.length > 0 && (
                     <div className="insights-card">
                       <div className="insights-card-header">
@@ -617,7 +576,6 @@ const ResultsView: React.FC<{
                     </div>
                   )}
 
-                  {/* Suggested Groupings */}
                   {aiInsights.suggested_groupings?.length > 0 && (
                     <div className="insights-card">
                       <div className="insights-card-header">
@@ -658,14 +616,11 @@ export default function EDAnalyzerHomepage(): JSX.Element {
   const [analysisRequest, setAnalysisRequest] = useState<string>('');
   const [file_link, setFileLink] = useState<string | null>(null);
 
-  // Add these new states for results
   const [analysisResults, setAnalysisResults] = useState<any>(null);
   const [showResults, setShowResults] = useState<boolean>(false);
 
-  // Add error state
   const [error, setError] = useState<string | null>(null);
 
-  // Generate floating data elements for background animation
   useEffect(() => {
     const elements: FloatingElement[] = Array.from({ length: 20 }, (_, i) => ({
       id: i,
