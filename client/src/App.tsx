@@ -967,7 +967,7 @@ export default function EDAnalyzerHomepage(): JSX.Element {
                 />
               </div>
               <p className="progress-text">
-                {file_link ? 'Analyzing data...' : `Uploading... ${Math.round(uploadProgress)}%`}
+                {file_link ? 'Analyzing data...Please wait.' : `Uploading... ${Math.round(uploadProgress)}%`}
               </p>
             </div>
           )}
@@ -1098,7 +1098,7 @@ export default function EDAnalyzerHomepage(): JSX.Element {
               <h4 className="footer-section-title">Connect & Contribute</h4>
               <div className="footer-social-links">
                 <a 
-                  href="https://github.com/r4kno/EDAnalyzer" 
+                  href="https://ed-analyzer.vercel.app/" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="footer-social-link github-link"
