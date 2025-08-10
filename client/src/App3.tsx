@@ -1,6 +1,6 @@
 import React, { useState, useEffect, type JSX } from 'react';
 import { Upload, BarChart3, TrendingUp, Database, FileSpreadsheet, Zap, MessageSquare } from 'lucide-react';
-import './App.css'; // We'll move styles here
+import './App.css';
 
 interface FloatingElement {
   id: number;
@@ -33,6 +33,217 @@ const PlotCard: React.FC<PlotCardProps> = ({ title, plotData, description }) => 
   </div>
 );
 
+// HOME PAGE COMPONENT
+const HomePage: React.FC<{
+  onFileUpload: (file: File, analysisRequest: string) => void;
+  isUploading: boolean;
+}> = ({ onFileUpload, isUploading }) => {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDragActive, setIsDragActive] = useState(false);
+  const [analysisRequest, setAnalysisRequest] = useState('');
+  const [floatingElements, setFloatingElements] = useState<FloatingElement[]>([]);
+
+  useEffect(() => {
+    const elements = Array.from({ length: 15 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      size: Math.random() * 15 + 8,
+      opacity: Math.random() * 0.2 + 0.05,
+      duration: Math.random() * 25 + 15,
+    }));
+    setFloatingElements(elements);
+  }, []);
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragActive(false);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      setSelectedFile(files[0]);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      setSelectedFile(files[0]);
+    }
+  };
+
+  const handleUpload = () => {
+    if (selectedFile) {
+      onFileUpload(selectedFile, analysisRequest);
+    }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  return (
+    <div className="app-container">
+      {/* Animated Background Elements */}
+      <div className="floating-bg">
+        {floatingElements.map((element) => (
+          <div
+            key={element.id}
+            className="floating-element"
+            style={{
+              left: `${element.x}%`,
+              top: `${element.y}%`,
+              width: `${element.size}px`,
+              height: `${element.size}px`,
+              opacity: element.opacity,
+              animationDuration: `${element.duration}s`,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Grid Pattern Overlay */}
+      <div className="grid-overlay" />
+
+      <div className="main-content">
+        {/* Header Section */}
+        <div className="header-section">
+          <div className="logo-container">
+            <div className="logo-wrapper">
+              <BarChart3 className="logo-icon" />
+              <div className="logo-dot" />
+            </div>
+          </div>
+          
+          <h1 className="main-title">
+            ED Analyzer
+          </h1>
+          
+          <p className="description">
+            Advanced Exploratory Data Analysis powered by AI. Upload your dataset and discover 
+            meaningful insights, patterns, and visualizations automatically.
+          </p>
+
+          {/* Feature Highlights */}
+          <div className="features-container">
+            <div className="feature-item feature-blue">
+              <div className="feature-icon-wrapper">
+                <TrendingUp className="feature-icon" />
+              </div>
+              <span className="feature-label">Smart Analysis</span>
+            </div>
+            <div className="feature-item feature-purple">
+              <div className="feature-icon-wrapper">
+                <Database className="feature-icon" />
+              </div>
+              <span className="feature-label">Data Cleaning</span>
+            </div>
+            <div className="feature-item feature-pink">
+              <div className="feature-icon-wrapper">
+                <BarChart3 className="feature-icon" />
+              </div>
+              <span className="feature-label">Visualizations</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Upload Section */}
+        <div className="upload-container">
+          <div
+            className={`upload-area ${isDragActive ? 'drag-active' : ''} ${selectedFile ? 'file-ready' : ''}`}
+            onDrop={handleDrop}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragActive(true);
+            }}
+            onDragLeave={() => setIsDragActive(false)}
+          >
+            <div className="upload-content">
+              {!selectedFile ? (
+                <>
+                  <div className={`upload-icon ${isDragActive ? 'drag-active' : ''}`}>
+                    <Upload size={48} />
+                  </div>
+                  <h3 className="upload-title">
+                    {isDragActive ? 'Drop your file here' : 'Upload your dataset'}
+                  </h3>
+                  <p className="upload-description">
+                    Drag and drop your CSV, Excel, or JSON file here, or click to browse
+                  </p>
+                  <input
+                    type="file"
+                    accept=".csv,.xlsx,.xls,.json"
+                    onChange={handleFileSelect}
+                    className="file-input"
+                    id="file-upload"
+                  />
+                  <label htmlFor="file-upload" className="choose-file-btn">
+                    Choose File
+                  </label>
+                </>
+              ) : (
+                <div className="file-ready-content">
+                  <div className="file-icon">
+                    <FileSpreadsheet size={48} />
+                  </div>
+                  <div className="file-details">
+                    <h3 className="file-title">Ready to analyze</h3>
+                    <p className="file-name">{selectedFile.name}</p>
+                    <p className="file-size">{formatFileSize(selectedFile.size)}</p>
+                  </div>
+                  <button 
+                    onClick={() => setSelectedFile(null)}
+                    className="remove-file-btn"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Analysis Request Input */}
+          {selectedFile && (
+            <div className="analysis-request-container">
+              <div className="input-with-icon">
+                <MessageSquare className="input-icon" />
+                <textarea
+                  value={analysisRequest}
+                  onChange={(e) => setAnalysisRequest(e.target.value)}
+                  placeholder="Describe what you want to analyze or discover in your data (optional)..."
+                  className="analysis-input"
+                  rows={3}
+                />
+              </div>
+              <button 
+                onClick={handleUpload}
+                disabled={isUploading}
+                className="analyze-btn"
+              >
+                {isUploading ? (
+                  <>
+                    <div className="loading-spinner" />
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <Zap size={20} />
+                    Start Analysis
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// RESULTS PAGE COMPONENT
 const ResultsView: React.FC<{ 
   results: any; 
   onBackToUpload: () => void; 
@@ -350,338 +561,87 @@ const ResultsView: React.FC<{
   );
 };
 
-export default function EDAnalyzerHomepage(): JSX.Element {
-  const [dragActive, setDragActive] = useState<boolean>(false);
-  const [file, setFile] = useState<File | null>(null);
-  const [floatingElements, setFloatingElements] = useState<FloatingElement[]>([]);
-  const [dragCounter, setDragCounter] = useState<number>(0);
-  const [uploadProgress, setUploadProgress] = useState<number>(0);
-  const [isUploading, setIsUploading] = useState<boolean>(false);
-  const [analysisRequest, setAnalysisRequest] = useState<string>('');
-  
-  // Add these new states for results
-  const [analysisResults, setAnalysisResults] = useState<any>(null);
-  const [showResults, setShowResults] = useState<boolean>(false);
-  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
+// MAIN APP COMPONENT
+const App: React.FC = () => {
+  const [currentView, setCurrentView] = useState<'upload' | 'results'>('upload');
+  const [results, setResults] = useState<any>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
-
-  // Generate floating data elements for background animation
-  useEffect(() => {
-    const elements: FloatingElement[] = Array.from({ length: 20 }, (_, i) => ({
-      id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      size: Math.random() * 20 + 10,
-      opacity: Math.random() * 0.3 + 0.1,
-      duration: Math.random() * 20 + 10
-    }));
-    setFloatingElements(elements);
-  }, []);
-
-  useEffect(() => {
-    const res = fetch("http://127.0.0.1:5000")
-      .then(response => response.json())
-      .then(data => console.log(data))
-      .catch(error => console.error("Error fetching data:", error));
-    console.log("Backend response:", res);
-  }, []);
-
-  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>): void => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragCounter(prev => prev + 1);
-    if (!dragActive) {
-      setDragActive(true);
-    }
-  };
-
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>): void => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragCounter(prev => {
-      const newCounter = prev - 1;
-      if (newCounter === 0) {
-        setDragActive(false);
-      }
-      return newCounter;
-    });
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>): void => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>): void => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    setDragCounter(0);
+  const handleFileUpload = async (file: File, analysisRequest: string) => {
+    setIsUploading(true);
     
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setFile(e.dataTransfer.files[0]);
-    }
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
-    }
-  };
-
-  const simulateProgress = (): Promise<void> => {
-    return new Promise((resolve) => {
-      setUploadProgress(0);
-      const interval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 100) {
-            clearInterval(interval);
-            resolve();
-            return 100;
-          }
-          return prev + Math.random() * 15;
-        });
-      }, 200);
-    });
-  };
-
-    const handleSubmit = async() => {
-    if (file) {
-      try {
-        setIsUploading(true);
-        
-        // Start progress simulation
-        const progressPromise = simulateProgress();
-        
-        // Handle file submission logic here
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("upload_preset", "ED_Analyzer");
-        formData.append("cloud_name", "dtu8mgezf");
-
-        const res = await fetch("https://api.cloudinary.com/v1_1/dtu8mgezf/raw/upload", {
-          method: "POST",
-          body: formData,
-        });
-
-        const data = await res.json();
-        console.log("Uploaded file URL:", data.secure_url);
-
-        // Wait for progress to complete
-        await progressPromise;
-        
-        // Start analysis phase
-        setIsAnalyzing(true);
-
-        const backendRes = await fetch("http://127.0.0.1:5000/api/file", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ 
-            file_link: data.secure_url,
-            analysis_request: analysisRequest 
-          })
-        });
-
-        const backendData = await backendRes.json();
-        console.log("Backend response:", backendData);
-        
-        // Store results and show results page
-        setAnalysisResults(backendData);
-        setShowResults(true);
-        
-      } catch (error) {
-        console.error("Upload error:", error);
-        alert("Upload failed. Please try again.");
-      } finally {
-        setIsUploading(false);
-        setIsAnalyzing(false);
-        setUploadProgress(0);
+    try {
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      // First, upload file to get URL
+      const uploadResponse = await fetch('https://api.cloudinary.com/v1_1/dtu8mgezf/raw/upload', {
+        method: 'POST',
+        body: (() => {
+          const data = new FormData();
+          data.append('file', file);
+          data.append('upload_preset', 'ml_default'); // You need to set this in Cloudinary
+          return data;
+        })(),
+      });
+      
+      if (!uploadResponse.ok) {
+        throw new Error('File upload failed');
       }
+      
+      const uploadData = await uploadResponse.json();
+      const fileUrl = uploadData.secure_url;
+      
+      // Send to your backend for analysis
+      const analysisResponse = await fetch('http://localhost:5000/api/file', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          file_link: fileUrl,
+          analysis_request: analysisRequest
+        }),
+      });
+      
+      if (!analysisResponse.ok) {
+        throw new Error('Analysis failed');
+      }
+      
+      const analysisData = await analysisResponse.json();
+      setResults(analysisData);
+      setCurrentView('results');
+      
+    } catch (error) {
+      console.error('Upload/Analysis error:', error);
+      alert('Failed to process file. Please try again.');
+    } finally {
+      setIsUploading(false);
     }
   };
 
-  const resetToUpload = () => {
-    setShowResults(false);
-    setAnalysisResults(null);
-    setFile(null);
-    setAnalysisRequest('');
+  const handleBackToUpload = () => {
+    setCurrentView('upload');
+    setResults(null);
   };
-
-  // Add this condition at the beginning of the return statement
-  if (showResults && analysisResults) {
-    return <ResultsView results={analysisResults} onBackToUpload={resetToUpload} />;
-  }
 
   return (
-    <div className="app-container w-screen">
-      {/* Animated Background Elements */}
-      <div className="floating-bg">
-        {floatingElements.map((element) => (
-          <div
-            key={element.id}
-            className="floating-element"
-            style={{
-              left: `${element.x}%`,
-              top: `${element.y}%`,
-              width: `${element.size}px`,
-              height: `${element.size}px`,
-              opacity: element.opacity,
-              animationDuration: `${element.duration}s`,
-            }}
-          />
-        ))}
-      </div>
-
-      {/* Grid Pattern Overlay */}
-      <div className="grid-overlay" />
-
-      {/* Main Content */}
-      <div className="main-content w-100">
-        
-        {/* Header Section */}
-        <div className="header-section">
-          <div className="logo-container">
-            <div className="logo-wrapper">
-              <BarChart3 className="logo-icon" />
-              <div className="logo-dot" />
-            </div>
-          </div>
-          
-          <h1 className="main-title">
-            ED Analyzer
-          </h1>
-          
-          <p className="description">
-            Transform your raw datasets into powerful insights with our advanced analytics engine. 
-            Upload your data and unlock hidden patterns, trends, and correlations with AI-powered analysis.
-          </p>
-
-          {/* Feature Icons */}
-          <div className="features-container">
-            <div className="feature-item">
-              <div className="feature-icon-wrapper feature-blue">
-                <Database className="feature-icon" />
-              </div>
-              <span className="feature-label">Data Processing</span>
-            </div>
-            <div className="feature-item">
-              <div className="feature-icon-wrapper feature-purple">
-                <TrendingUp className="feature-icon" />
-              </div>
-              <span className="feature-label">Trend Analysis</span>
-            </div>
-            <div className="feature-item">
-              <div className="feature-icon-wrapper feature-pink">
-                <Zap className="feature-icon" />
-              </div>
-              <span className="feature-label">Real-time Results</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Upload Section */}
-        <div className="upload-container">
-          <div 
-          className={`upload-area ${dragActive ? 'drag-active' : ''} ${file ? 'file-ready' : ''}`}
-          onDragEnter={handleDragEnter}
-          onDragLeave={handleDragLeave}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-        >
-            <div className="upload-content">
-              {file ? (
-                <div className="file-ready-content">
-                  <FileSpreadsheet className="file-icon" />
-                  <h3 className="file-title">File Ready for Analysis</h3>
-                  <p className="file-name">{file.name}</p>
-                  <p className="file-size">
-                    File size: {(file.size / 1024 / 1024).toFixed(2)} MB
-                  </p>
-                </div>
-              ) : (
-                <div>
-                  <Upload className={`upload-icon ${dragActive ? 'drag-active' : ''}`} />
-                  <h3 className="upload-title">Upload Your Dataset</h3>
-                  <p className="upload-description">
-                    Drag and drop your CSV, Excel, or JSON files here, or click to browse
-                  </p>
-                </div>
-              )}
-              
-              <input
-                type="file"
-                id="file-upload"
-                className="file-input"
-                accept=".csv,.xlsx,.xls,.json"
-                onChange={handleFileSelect}
-              />
-              
-              {!file && (
-                <label htmlFor="file-upload" className="choose-file-btn">
-                  <Upload className="btn-icon" />
-                  Choose File
-                </label>
-              )}
-            </div>
-
-            {/* Progress indicator for file upload */}
-            {dragActive && (
-              <div className="drop-overlay">
-                <div className="drop-text">Drop your file here!</div>
-              </div>
-            )}
-          </div>
-
-          {/* Progress Bar */}
-          {isUploading && (
-            <div className="progress-container">
-              <div className="progress-bar">
-                <div 
-                  className="progress-fill"
-                  style={{ width: `${uploadProgress}%` }}
-                />
-              </div>
-              <p className="progress-text">
-                {isAnalyzing ? 'Analyzing data...' : `Uploading... ${Math.round(uploadProgress)}%`}
-              </p>
-            </div>
-          )}
-
-          {/* Analysis Request Text Field */}
-          {file && !isUploading && (
-            <div className="analysis-request-container">
-              <div className="request-header">
-                <MessageSquare className="request-icon" />
-                <h4 className="request-title">What would you like to analyze?</h4>
-              </div>
-              <textarea
-                className="analysis-textarea"
-                placeholder="Describe what insights you're looking for... (e.g., 'Find trends in sales data', 'Identify customer patterns', 'Analyze correlation between variables')"
-                value={analysisRequest}
-                onChange={(e) => setAnalysisRequest(e.target.value)}
-                rows={3}
-              />
-            </div>
-          )}
-
-          {/* Submit Button */}
-          {file && !isUploading && (
-            <div className="submit-container">
-              <button onClick={handleSubmit} className="submit-btn">
-                <BarChart3 className="submit-icon" />
-                Start Analysis
-              </button>
-            </div>
-          )}
-
-          {/* Supported Formats */}
-          <div className="formats-info">
-            <p>Supported formats: CSV, Excel (.xlsx, .xls)</p>
-          </div>
-        </div>
-      </div>
-    </div>
+    <>
+      {currentView === 'upload' && (
+        <HomePage 
+          onFileUpload={handleFileUpload}
+          isUploading={isUploading}
+        />
+      )}
+      {currentView === 'results' && results && (
+        <ResultsView 
+          results={results}
+          onBackToUpload={handleBackToUpload}
+        />
+      )}
+    </>
   );
-}
+};
+
+export default App;
