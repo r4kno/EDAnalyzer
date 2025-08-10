@@ -1091,11 +1091,12 @@ export default function EDAnalyzerHomepage(): JSX.Element {
                   </div>
                 </a>
               </div>
-              
+              <a href='https://www.kaggle.com/datasets?fileType=csv&sizeEnd=10%2CMB'>
               <button className="explore-datasets-btn">
                 <Database className="explore-icon" />
                 <span>Explore More Datasets</span>
               </button>
+              </a>
             </div>
 
             <div className="footer-section footer-connect">
@@ -1145,7 +1146,7 @@ export default function EDAnalyzerHomepage(): JSX.Element {
                 <p>&copy; {new Date().getFullYear()} ED Analyzer. Built with ❤️ for data enthusiasts.</p>
               </div>
               <div className="footer-version">
-                <span className="version-badge">v1.0.0</span>
+                <span className="version-badge">v1.2.0</span>
               </div>
             </div>
           </div>
