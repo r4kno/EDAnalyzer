@@ -1,7 +1,6 @@
 import React, { useState, useEffect, type JSX } from 'react';
 import { Upload, BarChart3, TrendingUp, Database, FileSpreadsheet, Zap, MessageSquare, Download } from 'lucide-react';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import './App.css';
 
 interface FloatingElement {
@@ -12,28 +11,6 @@ interface FloatingElement {
   opacity: number;
   duration: number;
 }
-
-interface PlotCardProps {
-  title: string;
-  plotData: string;
-  description: string;
-}
-
-const PlotCard: React.FC<PlotCardProps> = ({ title, plotData, description }) => (
-  <div className="plot-card">
-    <div className="plot-header">
-      <h3 className="plot-title">{title}</h3>
-      <p className="plot-description">{description}</p>
-    </div>
-    <div className="plot-container">
-      <img 
-        src={`data:image/png;base64,${plotData}`} 
-        alt={title}
-        className="plot-image"
-      />
-    </div>
-  </div>
-);
 
 const ResultsView: React.FC<{ 
   results: any; 
@@ -102,9 +79,6 @@ const ResultsView: React.FC<{
       };
 
       // Helper function to get image dimensions
-   // ...existing code...
-
-// Helper function to get image dimensions
       const getImageDimensions = (base64String: string): Promise<{width: number, height: number}> => {
         return new Promise((resolve) => {
           const img = new Image();
@@ -114,8 +88,6 @@ const ResultsView: React.FC<{
           img.src = `data:image/png;base64,${base64String}`;
         });
       };
-
-// ...existing code...
 
       // Title Page
       pdf.setFontSize(28);
@@ -183,56 +155,55 @@ const ResultsView: React.FC<{
       yPosition += 10;
 
       // Data Cleaning Summary - More compact
-if (results.cleaning_report && Object.keys(results.cleaning_report).length > 0) {
-  checkNewPage(40);
-  pdf.setFontSize(14);
-  pdf.setTextColor(0, 0, 0);
-  pdf.text('Data Processing', margin, yPosition);
-  pdf.line(margin, yPosition + 2, margin + 40, yPosition + 2);
-  yPosition += 12;
+      if (results.cleaning_report && Object.keys(results.cleaning_report).length > 0) {
+        checkNewPage(40);
+        pdf.setFontSize(14);
+        pdf.setTextColor(0, 0, 0);
+        pdf.text('Data Processing', margin, yPosition);
+        pdf.line(margin, yPosition + 2, margin + 40, yPosition + 2);
+        yPosition += 12;
 
-  pdf.setFontSize(9);
-  const cleaningEntries = Object.entries(results.cleaning_report);
-  const midPoint = Math.ceil(cleaningEntries.length / 2);
+        pdf.setFontSize(9);
+        const cleaningEntries = Object.entries(results.cleaning_report);
+        const midPoint = Math.ceil(cleaningEntries.length / 2);
 
-  for (let i = 0; i < midPoint; i++) {
-    const [key, value] = cleaningEntries[i];
-    const wrappedValue = pdf.splitTextToSize(String(value), 40); // wrap to 40 width
+        for (let i = 0; i < midPoint; i++) {
+          const [key, value] = cleaningEntries[i];
+          const wrappedValue = pdf.splitTextToSize(String(value), 40); // wrap to 40 width
 
-    pdf.setTextColor(80, 80, 80);
-    pdf.text(`${key.replace('_', ' ')}:`, margin, yPosition);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text(wrappedValue, margin + 50, yPosition);
+          pdf.setTextColor(80, 80, 80);
+          pdf.text(`${key.replace('_', ' ')}:`, margin, yPosition);
+          pdf.setTextColor(0, 0, 0);
+          pdf.text(wrappedValue, margin + 50, yPosition);
 
-    // Second column
-    if (cleaningEntries[i + midPoint]) {
-      const [key2, value2] = cleaningEntries[i + midPoint];
-      const wrappedValue2 = pdf.splitTextToSize(String(value2), 40);
+          // Second column
+          if (cleaningEntries[i + midPoint]) {
+            const [key2, value2] = cleaningEntries[i + midPoint];
+            const wrappedValue2 = pdf.splitTextToSize(String(value2), 40);
 
-      pdf.setTextColor(80, 80, 80);
-      pdf.text(`${key2.replace('_', ' ')}:`, margin + 100, yPosition);
-      pdf.setTextColor(0, 0, 0);
-      pdf.text(wrappedValue2, margin + 150, yPosition);
-    }
+            pdf.setTextColor(80, 80, 80);
+            pdf.text(`${key2.replace('_', ' ')}:`, margin + 100, yPosition);
+            pdf.setTextColor(0, 0, 0);
+            pdf.text(wrappedValue2, margin + 150, yPosition);
+          }
 
-    // Adjust yPosition to the tallest wrapped text in this row
-    const rowHeight = Math.max(
-      pdf.getTextDimensions(wrappedValue).h * wrappedValue.length,
-      cleaningEntries[i + midPoint]
-        ? pdf.getTextDimensions(
-            pdf.splitTextToSize(String(cleaningEntries[i + midPoint][1]), 40)
-          ).h *
-            pdf.splitTextToSize(
-              String(cleaningEntries[i + midPoint][1]),
-              40
-            ).length
-        : 0
-    );
-    yPosition += rowHeight + 2;
-  }
-  yPosition += 10;
-}
-
+          // Adjust yPosition to the tallest wrapped text in this row
+          const rowHeight = Math.max(
+            pdf.getTextDimensions(wrappedValue).h * wrappedValue.length,
+            cleaningEntries[i + midPoint]
+              ? pdf.getTextDimensions(
+                  pdf.splitTextToSize(String(cleaningEntries[i + midPoint][1]), 40)
+                ).h *
+                  pdf.splitTextToSize(
+                    String(cleaningEntries[i + midPoint][1]),
+                    40
+                  ).length
+              : 0
+          );
+          yPosition += rowHeight + 2;
+        }
+        yPosition += 10;
+      }
 
       // Visualizations Section - New page for better presentation
       checkNewPage(0, true);
@@ -322,7 +293,7 @@ if (results.cleaning_report && Object.keys(results.cleaning_report).length > 0) 
 
         pdf.setFontSize(10);
         pdf.setTextColor(60, 60, 60);
-        aiInsights.key_insights_to_explore.forEach((insight: string, index: number) => {
+        aiInsights.key_insights_to_explore.forEach((insight: string) => {
           checkNewPage(12);
           const bullet = '•';
           pdf.text(bullet, margin, yPosition);
@@ -682,7 +653,6 @@ export default function EDAnalyzerHomepage(): JSX.Element {
   const [dragActive, setDragActive] = useState<boolean>(false);
   const [file, setFile] = useState<File | null>(null);
   const [floatingElements, setFloatingElements] = useState<FloatingElement[]>([]);
-  const [dragCounter, setDragCounter] = useState<number>(0);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [analysisRequest, setAnalysisRequest] = useState<string>('');
@@ -691,8 +661,9 @@ export default function EDAnalyzerHomepage(): JSX.Element {
   // Add these new states for results
   const [analysisResults, setAnalysisResults] = useState<any>(null);
   const [showResults, setShowResults] = useState<boolean>(false);
-  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
 
+  // Add error state
+  const [error, setError] = useState<string | null>(null);
 
   // Generate floating data elements for background animation
   useEffect(() => {
@@ -708,17 +679,22 @@ export default function EDAnalyzerHomepage(): JSX.Element {
   }, []);
 
   useEffect(() => {
-    const res = fetch("http://127.0.0.1:5000")
+    const baseUrl = import.meta.env.VITE_API_URL || "https://edanalyzer.onrender.com";
+    fetch(baseUrl)
       .then(response => response.json())
-      .then(data => console.log(data))
-      .catch(error => console.error("Error fetching data:", error));
-    console.log("Backend response:", res);
+      .then(data => {
+        if (import.meta.env.DEV) {
+          console.log('Backend health check:', data);
+        }
+      })
+      .catch(error => {
+        console.error("Backend connection failed:", error);
+      });
   }, []);
 
   const handleDragEnter = (e: React.DragEvent<HTMLDivElement>): void => {
     e.preventDefault();
     e.stopPropagation();
-    setDragCounter(prev => prev + 1);
     if (!dragActive) {
       setDragActive(true);
     }
@@ -727,13 +703,14 @@ export default function EDAnalyzerHomepage(): JSX.Element {
   const handleDragLeave = (e: React.DragEvent<HTMLDivElement>): void => {
     e.preventDefault();
     e.stopPropagation();
-    setDragCounter(prev => {
-      const newCounter = prev - 1;
-      if (newCounter === 0) {
-        setDragActive(false);
-      }
-      return newCounter;
-    });
+    // Only set to false if we're leaving the upload area entirely
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX;
+    const y = e.clientY;
+    
+    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+      setDragActive(false);
+    }
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>): void => {
@@ -745,7 +722,6 @@ export default function EDAnalyzerHomepage(): JSX.Element {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    setDragCounter(0);
     
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       setFile(e.dataTransfer.files[0]);
@@ -759,36 +735,36 @@ export default function EDAnalyzerHomepage(): JSX.Element {
   };
 
   const simulateProgress = (file: File): Promise<void> => {
-  return new Promise((resolve) => {
-    const sizeMB = file.size / (1024 * 1024); // bytes → MB
-    const duration = (sizeMB / 0.1) * 1000;  // 10s per 0.1 MB
+    return new Promise((resolve) => {
+      const sizeMB = file.size / (1024 * 1024); // bytes → MB
+      const duration = (sizeMB / 0.1) * 1000;  // 10s per 0.1 MB
 
-    setUploadProgress(0);
+      setUploadProgress(0);
 
-    const stepTime = 200; // ms between updates
-    const totalSteps = duration / stepTime;
+      const stepTime = 200; // ms between updates
+      const totalSteps = duration / stepTime;
 
-    const interval = setInterval(() => {
-      setUploadProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          resolve();
-          return 100;
-        }
-        // Base increment so we finish in target time
-        const baseIncrement = 100 / totalSteps;
-        // Add small randomness (±30% of base increment)
-        const randomFactor = 1 + (Math.random() - 0.5) * 0.6;
-        return Math.min(prev + baseIncrement * randomFactor, 100);
-      });
-    }, stepTime);
-  });
-};
+      const interval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 100) {
+            clearInterval(interval);
+            resolve();
+            return 100;
+          }
+          // Base increment so we finish in target time
+          const baseIncrement = 100 / totalSteps;
+          // Add small randomness (±30% of base increment)
+          const randomFactor = 1 + (Math.random() - 0.5) * 0.6;
+          return Math.min(prev + baseIncrement * randomFactor, 100);
+        });
+      }, stepTime);
+    });
+  };
 
-
-    const handleSubmit = async() => {
+  const handleSubmit = async() => {
     if (file) {
       try {
+        setError(null);
         setIsUploading(true);
         
         // Start progress simulation
@@ -797,10 +773,11 @@ export default function EDAnalyzerHomepage(): JSX.Element {
         // Handle file submission logic here
         const formData = new FormData();
         formData.append("file", file);
-        formData.append("upload_preset", "ED_Analyzer");
-        formData.append("cloud_name", "dtu8mgezf");
+        formData.append("upload_preset", import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || "ED_Analyzer");
+        formData.append("cloud_name", import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || "dtu8mgezf");
 
-        const res = await fetch("https://api.cloudinary.com/v1_1/dtu8mgezf/raw/upload", {
+        const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || "dtu8mgezf";
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/raw/upload`, {
           method: "POST",
           body: formData,
         });
@@ -813,9 +790,9 @@ export default function EDAnalyzerHomepage(): JSX.Element {
         await progressPromise;
         
         // Start analysis phase
-        setIsAnalyzing(true);
+        
 
-        const backendRes = await fetch("http://127.0.0.1:5000/api/file", {
+        const backendRes = await fetch(`${import.meta.env.VITE_API_URL || "https://edanalyzer.onrender.com"}/api/file`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
@@ -827,7 +804,9 @@ export default function EDAnalyzerHomepage(): JSX.Element {
         });
 
         const backendData = await backendRes.json();
-        console.log("Backend response:", backendData);
+        if (import.meta.env.DEV) {
+          console.log("Backend response:", backendData);
+        }
         
         // Store results and show results page
         setAnalysisResults(backendData);
@@ -835,10 +814,12 @@ export default function EDAnalyzerHomepage(): JSX.Element {
         
       } catch (error) {
         console.error("Upload error:", error);
-        alert("Upload failed. Please try again.");
+        setError(error instanceof Error ? error.message : "Upload failed. Please try again.");
       } finally {
         setIsUploading(false);
-        setIsAnalyzing(false);
+       
+        
+      
         setUploadProgress(0);
       }
     }
@@ -896,8 +877,8 @@ export default function EDAnalyzerHomepage(): JSX.Element {
           </h1>
           
           <p className="description">
-            Transform your raw datasets into powerful insights with our advanced analytics engine. 
-            Upload your data and unlock hidden patterns, trends, and correlations with AI-powered analysis.
+            Transform your raw datasets into powerful insights with advanced analytics engine. 
+            Upload your data and unlock hidden patterns, trends, and correlations with AI-powered Exploratory Data Analysis.
           </p>
 
           {/* Feature Icons */}
@@ -926,12 +907,12 @@ export default function EDAnalyzerHomepage(): JSX.Element {
         {/* Upload Section */}
         <div className="upload-container">
           <div 
-          className={`upload-area ${dragActive ? 'drag-active' : ''} ${file ? 'file-ready' : ''}`}
-          onDragEnter={handleDragEnter}
-          onDragLeave={handleDragLeave}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-        >
+            className={`upload-area ${dragActive ? 'drag-active' : ''} ${file ? 'file-ready' : ''}`}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
             <div className="upload-content">
               {file ? (
                 <div className="file-ready-content">
@@ -1022,6 +1003,20 @@ export default function EDAnalyzerHomepage(): JSX.Element {
           <div className="formats-info">
             <p>Supported formats: CSV, Excel (.xlsx, .xls)</p>
           </div>
+
+          {/* Error Message Display */}
+          {error && (
+  <div className="error-message" style={{
+    background: '#fee2e2',
+    border: '1px solid #fecaca',
+    color: '#dc2626',
+    padding: '1rem',
+    borderRadius: '8px',
+    margin: '1rem 0'
+  }}>
+    {error}
+  </div>
+)}
         </div>
 
       </div>

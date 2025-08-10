@@ -11,27 +11,8 @@ interface FloatingElement {
   duration: number;
 }
 
-interface PlotCardProps {
-  title: string;
-  plotData: string;
-  description: string;
-}
 
-const PlotCard: React.FC<PlotCardProps> = ({ title, plotData, description }) => (
-  <div className="plot-card">
-    <div className="plot-header">
-      <h3 className="plot-title">{title}</h3>
-      <p className="plot-description">{description}</p>
-    </div>
-    <div className="plot-container">
-      <img 
-        src={`data:image/png;base64,${plotData}`} 
-        alt={title}
-        className="plot-image"
-      />
-    </div>
-  </div>
-);
+
 
 const ResultsView: React.FC<{ 
   results: any; 
@@ -352,7 +333,6 @@ export default function EDAnalyzerHomepage(): JSX.Element {
   const [dragActive, setDragActive] = useState<boolean>(false);
   const [file, setFile] = useState<File | null>(null);
   const [floatingElements, setFloatingElements] = useState<FloatingElement[]>([]);
-  const [dragCounter, setDragCounter] = useState<number>(0);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [analysisRequest, setAnalysisRequest] = useState<string>('');
@@ -387,7 +367,7 @@ export default function EDAnalyzerHomepage(): JSX.Element {
   const handleDragEnter = (e: React.DragEvent<HTMLDivElement>): void => {
     e.preventDefault();
     e.stopPropagation();
-    setDragCounter(prev => prev + 1);
+   
     if (!dragActive) {
       setDragActive(true);
     }
@@ -396,13 +376,7 @@ export default function EDAnalyzerHomepage(): JSX.Element {
   const handleDragLeave = (e: React.DragEvent<HTMLDivElement>): void => {
     e.preventDefault();
     e.stopPropagation();
-    setDragCounter(prev => {
-      const newCounter = prev - 1;
-      if (newCounter === 0) {
-        setDragActive(false);
-      }
-      return newCounter;
-    });
+   
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>): void => {
@@ -414,7 +388,7 @@ export default function EDAnalyzerHomepage(): JSX.Element {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    setDragCounter(0);
+ 
     
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       setFile(e.dataTransfer.files[0]);
