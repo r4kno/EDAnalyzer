@@ -829,6 +829,8 @@
   margin-bottom: 4rem;
   animation: fade-in 0.6s ease-out;
   position: relative;
+  justify-content: space-between;
+  width: 100%;
 }
 
 .modern-back-btn {
@@ -1097,7 +1099,7 @@
 }
 
 .modern-plot-card:hover {
-  transform: translateY(-8px);
+  transform: translateY(-4px);
   border-color: rgba(147, 51, 234, 0.5);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
 }
@@ -1147,9 +1149,6 @@
   opacity: 1;
 }
 
-.modern-plot-card:hover .plot-card-image {
-  transform: scale(1.05);
-}
 
 .plot-hover-text {
   color: white;

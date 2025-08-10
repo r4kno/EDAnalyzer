@@ -1,6 +1,8 @@
 import React, { useState, useEffect, type JSX } from 'react';
-import { Upload, BarChart3, TrendingUp, Database, FileSpreadsheet, Zap, MessageSquare } from 'lucide-react';
-import './App.css'; // We'll move styles here
+import { Upload, BarChart3, TrendingUp, Database, FileSpreadsheet, Zap, MessageSquare, Download } from 'lucide-react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import './App.css';
 
 interface FloatingElement {
   id: number;
@@ -40,10 +42,10 @@ const ResultsView: React.FC<{
   const plots = results.plots || {};
   const aiInsights = results.ai_insights || {};
   const [showAIInsights, setShowAIInsights] = useState<boolean>(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState<boolean>(false);
   
   // Dynamic plot configurations based on actual plots returned
   const availablePlots = Object.keys(plots).map(key => {
-    // Handle both static and AI-generated plot names
     if (key === 'data_overview') {
       return { key, title: 'Data Overview', description: 'Original vs cleaned data comparison' };
     } else if (key === 'missing_data') {
@@ -62,6 +64,284 @@ const ResultsView: React.FC<{
       return { key, title: key.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()), description: 'AI-generated visualization' };
     }
   });
+
+  const generatePDF = async () => {
+    setIsGeneratingPDF(true);
+    
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 15; // Reduced margin for better space utilization
+      let yPosition = margin;
+      let currentPage = 1;
+
+      // Helper function to add footer
+      const addFooter = (pageNum: number) => {
+        pdf.setFontSize(9);
+        pdf.setTextColor(100, 100, 100);
+        pdf.text('ED Analyzer', margin, pageHeight - 8);
+        pdf.text(`Page ${pageNum}`, pageWidth - margin - 15, pageHeight - 8);
+      };
+
+      // Helper function to check if new page is needed
+      const checkNewPage = (requiredHeight: number, forceNewPage = false) => {
+        if (yPosition + requiredHeight > pageHeight - 20 || forceNewPage) {
+          addFooter(currentPage);
+          pdf.addPage();
+          currentPage++;
+          yPosition = margin;
+          return true;
+        }
+        return false;
+      };
+
+      // Helper function to get image dimensions
+      const getImageDimensions = (base64String: string): Promise<{width: number, height: number}> => {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = function() {
+            resolve({ width: this.width, height: this.height });
+          };
+          img.src = `data:image/png;base64,${base64String}`;
+        });
+      };
+
+      // Title Page
+      pdf.setFontSize(28);
+      pdf.setTextColor(59, 130, 246);
+      pdf.text('ED Analyzer', pageWidth / 2, 50, { align: 'center' });
+      
+      pdf.setFontSize(20);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text('Data Analysis Report', pageWidth / 2, 70, { align: 'center' });
+      
+      pdf.setFontSize(12);
+      pdf.setTextColor(128, 128, 128);
+      pdf.text(`Generated on ${new Date().toLocaleDateString()}`, pageWidth / 2, 85, { align: 'center' });
+      
+      // Add a decorative line
+      pdf.setLineWidth(0.5);
+      pdf.setDrawColor(59, 130, 246);
+      pdf.line(pageWidth / 2 - 30, 95, pageWidth / 2 + 30, 95);
+      
+      yPosition = 120;
+
+      // Executive Summary Section
+      pdf.setFontSize(16);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text('Executive Summary', margin, yPosition);
+      
+      // Add underline
+      pdf.setLineWidth(0.3);
+      pdf.setDrawColor(59, 130, 246);
+      pdf.line(margin, yPosition + 2, margin + 50, yPosition + 2);
+      yPosition += 12;
+
+      pdf.setFontSize(11);
+      pdf.setTextColor(60, 60, 60);
+      const summaryText = results.message || 'Data analysis completed successfully with comprehensive insights and visualizations.';
+      const splitSummary = pdf.splitTextToSize(summaryText, pageWidth - 2 * margin);
+      pdf.text(splitSummary, margin, yPosition);
+      yPosition += splitSummary.length * 5 + 15;
+
+      // Data Summary Section - Compact table
+      checkNewPage(45);
+      pdf.setFontSize(14);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text('Data Overview', margin, yPosition);
+      pdf.setLineWidth(0.3);
+      pdf.line(margin, yPosition + 2, margin + 35, yPosition + 2);
+      yPosition += 12;
+
+      // Create a more compact summary table
+      const summaryData = [
+        ['Original Data', `${results.original_shape[0]} rows × ${results.original_shape[1]} columns`],
+        ['Cleaned Data', `${results.cleaned_shape[0]} rows × ${results.cleaned_shape[1]} columns`],
+        ['Data Retention', `${Math.round(((results.cleaned_shape[0] / results.original_shape[0]) * 100))}%`],
+        ['AI Enhancement', results.ai_analysis_used ? 'Enabled' : 'Standard Analysis']
+      ];
+
+      pdf.setFontSize(10);
+      summaryData.forEach(([label, value]) => {
+        pdf.setTextColor(80, 80, 80);
+        pdf.text(`${label}:`, margin, yPosition);
+        pdf.setTextColor(0, 0, 0);
+        pdf.text(value, margin + 45, yPosition);
+        yPosition += 6;
+      });
+      yPosition += 10;
+
+      // Data Cleaning Summary - More compact
+      if (results.cleaning_report && Object.keys(results.cleaning_report).length > 0) {
+        checkNewPage(40);
+        pdf.setFontSize(14);
+        pdf.setTextColor(0, 0, 0);
+        pdf.text('Data Processing', margin, yPosition);
+        pdf.line(margin, yPosition + 2, margin + 40, yPosition + 2);
+        yPosition += 12;
+
+        pdf.setFontSize(9);
+        const cleaningEntries = Object.entries(results.cleaning_report);
+        const midPoint = Math.ceil(cleaningEntries.length / 2);
+        
+        // Split into two columns for better space utilization
+        for (let i = 0; i < midPoint; i++) {
+          const [key, value] = cleaningEntries[i];
+          pdf.setTextColor(80, 80, 80);
+          pdf.text(`${key.replace('_', ' ')}:`, margin, yPosition);
+          pdf.setTextColor(0, 0, 0);
+          pdf.text(`${value}`, margin + 50, yPosition);
+          
+          // Second column
+          if (cleaningEntries[i + midPoint]) {
+            const [key2, value2] = cleaningEntries[i + midPoint];
+            pdf.setTextColor(80, 80, 80);
+            pdf.text(`${key2.replace('_', ' ')}:`, margin + 100, yPosition);
+            pdf.setTextColor(0, 0, 0);
+            pdf.text(`${value2}`, margin + 150, yPosition);
+          }
+          yPosition += 5;
+        }
+        yPosition += 10;
+      }
+
+      // Visualizations Section - New page for better presentation
+      checkNewPage(0, true);
+      pdf.setFontSize(18);
+      pdf.setTextColor(59, 130, 246);
+      pdf.text('Data Visualizations', pageWidth / 2, yPosition, { align: 'center' });
+      pdf.line(pageWidth / 2 - 40, yPosition + 3, pageWidth / 2 + 40, yPosition + 3);
+      yPosition += 20;
+
+      // Process plots with dynamic sizing
+      for (let i = 0; i < availablePlots.length; i++) {
+        const config = availablePlots[i];
+        
+        try {
+          // Get actual image dimensions
+          const imageDimensions = await getImageDimensions(plots[config.key]);
+          
+          // Calculate optimal dimensions while maintaining aspect ratio
+          const maxWidth = pageWidth - 2 * margin;
+          const maxHeight = 120; // Maximum height per plot
+          
+          const aspectRatio = imageDimensions.width / imageDimensions.height;
+          let imgWidth = maxWidth;
+          let imgHeight = imgWidth / aspectRatio;
+          
+          // If height exceeds maximum, adjust width accordingly
+          if (imgHeight > maxHeight) {
+            imgHeight = maxHeight;
+            imgWidth = imgHeight * aspectRatio;
+          }
+          
+          // Check if we need a new page
+          const requiredSpace = imgHeight + 25; // Image + title space
+          checkNewPage(requiredSpace);
+
+          // Plot title and description - more compact
+          pdf.setFontSize(12);
+          pdf.setTextColor(0, 0, 0);
+          pdf.text(config.title, margin, yPosition);
+          yPosition += 8;
+
+          pdf.setFontSize(9);
+          pdf.setTextColor(100, 100, 100);
+          const descText = pdf.splitTextToSize(config.description, pageWidth - 2 * margin);
+          pdf.text(descText, margin, yPosition);
+          yPosition += descText.length * 3 + 5;
+
+          // Center the image horizontally
+          const xPosition = (pageWidth - imgWidth) / 2;
+          
+          // Add the image
+          const imgData = `data:image/png;base64,${plots[config.key]}`;
+          pdf.addImage(imgData, 'PNG', xPosition, yPosition, imgWidth, imgHeight);
+          yPosition += imgHeight + 15;
+
+        } catch (error) {
+          console.error('Error adding image to PDF:', error);
+          // Fallback for broken images
+          checkNewPage(25);
+          pdf.setFontSize(12);
+          pdf.setTextColor(0, 0, 0);
+          pdf.text(config.title, margin, yPosition);
+          yPosition += 10;
+          
+          pdf.setFontSize(10);
+          pdf.setTextColor(255, 0, 0);
+          pdf.text('Visualization could not be loaded', margin, yPosition);
+          yPosition += 15;
+        }
+      }
+
+      // AI Insights Section - Only if available and substantial
+      if (results.ai_analysis_used && aiInsights.key_insights_to_explore?.length > 0) {
+        checkNewPage(0, true);
+        
+        pdf.setFontSize(16);
+        pdf.setTextColor(59, 130, 246);
+        pdf.text('AI-Generated Insights', pageWidth / 2, yPosition, { align: 'center' });
+        pdf.line(pageWidth / 2 - 35, yPosition + 3, pageWidth / 2 + 35, yPosition + 3);
+        yPosition += 20;
+
+        // Key Insights - More compact formatting
+        pdf.setFontSize(12);
+        pdf.setTextColor(0, 0, 0);
+        pdf.text('Key Findings', margin, yPosition);
+        yPosition += 10;
+
+        pdf.setFontSize(10);
+        pdf.setTextColor(60, 60, 60);
+        aiInsights.key_insights_to_explore.forEach((insight: string, index: number) => {
+          checkNewPage(12);
+          const bullet = '•';
+          pdf.text(bullet, margin, yPosition);
+          const insightText = pdf.splitTextToSize(insight, pageWidth - 2 * margin - 8);
+          pdf.text(insightText, margin + 5, yPosition);
+          yPosition += insightText.length * 4 + 3;
+        });
+
+        // Visualization Recommendations - Condensed format
+        if (aiInsights.recommended_plots?.length > 0) {
+          yPosition += 8;
+          checkNewPage(30);
+
+          pdf.setFontSize(12);
+          pdf.setTextColor(0, 0, 0);
+          pdf.text('Visualization Recommendations', margin, yPosition);
+          yPosition += 10;
+
+          pdf.setFontSize(9);
+          pdf.setTextColor(60, 60, 60);
+          aiInsights.recommended_plots.slice(0, 5).forEach((plot: any, index: number) => { // Limit to top 5 recommendations
+            checkNewPage(15);
+            pdf.text(`${index + 1}. ${plot.title} (${plot.plot_type})`, margin, yPosition);
+            yPosition += 5;
+            
+            const plotDesc = pdf.splitTextToSize(plot.description, pageWidth - 2 * margin - 10);
+            pdf.text(plotDesc, margin + 5, yPosition);
+            yPosition += plotDesc.length * 3 + 4;
+          });
+        }
+      }
+
+      // Add footer to last page
+      addFooter(currentPage);
+
+      // Save the PDF with timestamp
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+      const fileName = `ED_Analyzer_Report_${timestamp}.pdf`;
+      pdf.save(fileName);
+
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Error generating PDF. Please try again.');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
 
   return (
     <div className="results-app-container">
@@ -89,10 +369,26 @@ const ResultsView: React.FC<{
       <div className="results-main-content">
         {/* Header Section */}
         <div className="results-header-section">
-          <button onClick={onBackToUpload} className="modern-back-btn">
-            <Upload className="back-icon" />
-            New Analysis
-          </button>
+          <div style={{ display: 'flex', gap: '1rem', position: 'absolute', top: 0, left: 0, flexWrap: 'wrap' }}>
+            {/* <button onClick={onBackToUpload} className="modern-back-btn">
+              <Upload className="back-icon" />
+              New Analysis
+            </button> */}
+            
+            <button 
+              onClick={generatePDF} 
+              className="modern-back-btn"
+              disabled={isGeneratingPDF}
+              style={{ 
+                background: isGeneratingPDF ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                borderColor: isGeneratingPDF ? 'rgba(16, 185, 129, 0.3)' : 'rgba(16, 185, 129, 0.3)',
+                color: isGeneratingPDF ? '#9ca3af' : '#10b981'
+              }}
+            >
+              <Download className="back-icon" />
+              {isGeneratingPDF ? 'Generating PDF...' : 'Download PDF'}
+            </button>
+          </div>
           
           <div className="results-logo-container">
             <div className="results-logo-wrapper">
@@ -197,9 +493,7 @@ const ResultsView: React.FC<{
                     alt={config.title}
                     className="plot-card-image"
                   />
-                  <div className="plot-overlay">
-                    <div className="plot-hover-text">View Details</div>
-                  </div>
+                 
                 </div>
               </div>
             ))}
@@ -429,21 +723,33 @@ export default function EDAnalyzerHomepage(): JSX.Element {
     }
   };
 
-  const simulateProgress = (): Promise<void> => {
-    return new Promise((resolve) => {
-      setUploadProgress(0);
-      const interval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 100) {
-            clearInterval(interval);
-            resolve();
-            return 100;
-          }
-          return prev + Math.random() * 15;
-        });
-      }, 200);
-    });
-  };
+  const simulateProgress = (file: File): Promise<void> => {
+  return new Promise((resolve) => {
+    const sizeMB = file.size / (1024 * 1024); // bytes → MB
+    const duration = (sizeMB / 0.1) * 1000;  // 10s per 0.1 MB
+
+    setUploadProgress(0);
+
+    const stepTime = 200; // ms between updates
+    const totalSteps = duration / stepTime;
+
+    const interval = setInterval(() => {
+      setUploadProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          resolve();
+          return 100;
+        }
+        // Base increment so we finish in target time
+        const baseIncrement = 100 / totalSteps;
+        // Add small randomness (±30% of base increment)
+        const randomFactor = 1 + (Math.random() - 0.5) * 0.6;
+        return Math.min(prev + baseIncrement * randomFactor, 100);
+      });
+    }, stepTime);
+  });
+};
+
 
     const handleSubmit = async() => {
     if (file) {
@@ -451,7 +757,7 @@ export default function EDAnalyzerHomepage(): JSX.Element {
         setIsUploading(true);
         
         // Start progress simulation
-        const progressPromise = simulateProgress();
+        const progressPromise = simulateProgress(file);
         
         // Handle file submission logic here
         const formData = new FormData();
@@ -538,7 +844,7 @@ export default function EDAnalyzerHomepage(): JSX.Element {
       <div className="grid-overlay" />
 
       {/* Main Content */}
-      <div className="main-content w-100">
+      <div className="main-content w-100 ">
         
         {/* Header Section */}
         <div className="header-section">
