@@ -190,11 +190,6 @@ Main application component handling:
 - Results visualization
 - PDF generation
 
-#### Styling
-- Modern glassmorphism design in [`App.css`](client/src/App.css)
-- Responsive layout with CSS Grid and Flexbox
-- Animated backgrounds and smooth transitions
-
 ### Backend Modules
 
 #### [`app.py`](server/app.py)
