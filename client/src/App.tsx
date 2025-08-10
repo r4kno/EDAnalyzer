@@ -80,9 +80,14 @@ const ResultsView: React.FC<{
       const addFooter = (pageNum: number) => {
         pdf.setFontSize(9);
         pdf.setTextColor(100, 100, 100);
-        pdf.text('ED Analyzer', margin, pageHeight - 8);
+        
+        pdf.textWithLink('ED Analyzer', margin, pageHeight - 8, {
+          url: 'https://github.com/r4kno/EDAnalyzer'
+        });
+
         pdf.text(`Page ${pageNum}`, pageWidth - margin - 15, pageHeight - 8);
       };
+
 
       // Helper function to check if new page is needed
       const checkNewPage = (requiredHeight: number, forceNewPage = false) => {
@@ -97,15 +102,20 @@ const ResultsView: React.FC<{
       };
 
       // Helper function to get image dimensions
+   // ...existing code...
+
+// Helper function to get image dimensions
       const getImageDimensions = (base64String: string): Promise<{width: number, height: number}> => {
         return new Promise((resolve) => {
           const img = new Image();
-          img.onload = function() {
-            resolve({ width: this.width, height: this.height });
+          img.onload = () => {
+            resolve({ width: img.naturalWidth, height: img.naturalHeight });
           };
           img.src = `data:image/png;base64,${base64String}`;
         });
       };
+
+// ...existing code...
 
       // Title Page
       pdf.setFontSize(28);
@@ -173,38 +183,56 @@ const ResultsView: React.FC<{
       yPosition += 10;
 
       // Data Cleaning Summary - More compact
-      if (results.cleaning_report && Object.keys(results.cleaning_report).length > 0) {
-        checkNewPage(40);
-        pdf.setFontSize(14);
-        pdf.setTextColor(0, 0, 0);
-        pdf.text('Data Processing', margin, yPosition);
-        pdf.line(margin, yPosition + 2, margin + 40, yPosition + 2);
-        yPosition += 12;
+if (results.cleaning_report && Object.keys(results.cleaning_report).length > 0) {
+  checkNewPage(40);
+  pdf.setFontSize(14);
+  pdf.setTextColor(0, 0, 0);
+  pdf.text('Data Processing', margin, yPosition);
+  pdf.line(margin, yPosition + 2, margin + 40, yPosition + 2);
+  yPosition += 12;
 
-        pdf.setFontSize(9);
-        const cleaningEntries = Object.entries(results.cleaning_report);
-        const midPoint = Math.ceil(cleaningEntries.length / 2);
-        
-        // Split into two columns for better space utilization
-        for (let i = 0; i < midPoint; i++) {
-          const [key, value] = cleaningEntries[i];
-          pdf.setTextColor(80, 80, 80);
-          pdf.text(`${key.replace('_', ' ')}:`, margin, yPosition);
-          pdf.setTextColor(0, 0, 0);
-          pdf.text(`${value}`, margin + 50, yPosition);
-          
-          // Second column
-          if (cleaningEntries[i + midPoint]) {
-            const [key2, value2] = cleaningEntries[i + midPoint];
-            pdf.setTextColor(80, 80, 80);
-            pdf.text(`${key2.replace('_', ' ')}:`, margin + 100, yPosition);
-            pdf.setTextColor(0, 0, 0);
-            pdf.text(`${value2}`, margin + 150, yPosition);
-          }
-          yPosition += 5;
-        }
-        yPosition += 10;
-      }
+  pdf.setFontSize(9);
+  const cleaningEntries = Object.entries(results.cleaning_report);
+  const midPoint = Math.ceil(cleaningEntries.length / 2);
+
+  for (let i = 0; i < midPoint; i++) {
+    const [key, value] = cleaningEntries[i];
+    const wrappedValue = pdf.splitTextToSize(String(value), 40); // wrap to 40 width
+
+    pdf.setTextColor(80, 80, 80);
+    pdf.text(`${key.replace('_', ' ')}:`, margin, yPosition);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(wrappedValue, margin + 50, yPosition);
+
+    // Second column
+    if (cleaningEntries[i + midPoint]) {
+      const [key2, value2] = cleaningEntries[i + midPoint];
+      const wrappedValue2 = pdf.splitTextToSize(String(value2), 40);
+
+      pdf.setTextColor(80, 80, 80);
+      pdf.text(`${key2.replace('_', ' ')}:`, margin + 100, yPosition);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(wrappedValue2, margin + 150, yPosition);
+    }
+
+    // Adjust yPosition to the tallest wrapped text in this row
+    const rowHeight = Math.max(
+      pdf.getTextDimensions(wrappedValue).h * wrappedValue.length,
+      cleaningEntries[i + midPoint]
+        ? pdf.getTextDimensions(
+            pdf.splitTextToSize(String(cleaningEntries[i + midPoint][1]), 40)
+          ).h *
+            pdf.splitTextToSize(
+              String(cleaningEntries[i + midPoint][1]),
+              40
+            ).length
+        : 0
+    );
+    yPosition += rowHeight + 2;
+  }
+  yPosition += 10;
+}
+
 
       // Visualizations Section - New page for better presentation
       checkNewPage(0, true);
@@ -223,8 +251,8 @@ const ResultsView: React.FC<{
           const imageDimensions = await getImageDimensions(plots[config.key]);
           
           // Calculate optimal dimensions while maintaining aspect ratio
-          const maxWidth = pageWidth - 2 * margin;
-          const maxHeight = 120; // Maximum height per plot
+          const maxWidth = pageWidth - 2 ;
+          const maxHeight = 200; // Maximum height per plot
           
           const aspectRatio = imageDimensions.width / imageDimensions.height;
           let imgWidth = maxWidth;
@@ -332,7 +360,7 @@ const ResultsView: React.FC<{
 
       // Save the PDF with timestamp
       const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
-      const fileName = `ED_Analyzer_Report_${timestamp}.pdf`;
+      const fileName = `EDA_Report_${timestamp}.pdf`;
       pdf.save(fileName);
 
     } catch (error) {
@@ -369,15 +397,21 @@ const ResultsView: React.FC<{
       <div className="results-main-content">
         {/* Header Section */}
         <div className="results-header-section">
-          <div style={{ display: 'flex', gap: '1rem', position: 'absolute', top: 0, left: 0, flexWrap: 'wrap' }}>
-            {/* <button onClick={onBackToUpload} className="modern-back-btn">
+          <div className="buttons" style={{
+            width: '100%',
+            height: '50px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '0 1rem'
+          }}>
+            <button onClick={onBackToUpload} className='modern-back-btn'>
               <Upload className="back-icon" />
               New Analysis
-            </button> */}
-            
+            </button>
             <button 
-              onClick={generatePDF} 
               className="modern-back-btn"
+              onClick={generatePDF}
               disabled={isGeneratingPDF}
               style={{ 
                 background: isGeneratingPDF ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.1)',
@@ -652,7 +686,8 @@ export default function EDAnalyzerHomepage(): JSX.Element {
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [analysisRequest, setAnalysisRequest] = useState<string>('');
-  
+  const [file_link, setFileLink] = useState<string | null>(null);
+
   // Add these new states for results
   const [analysisResults, setAnalysisResults] = useState<any>(null);
   const [showResults, setShowResults] = useState<boolean>(false);
@@ -771,6 +806,7 @@ export default function EDAnalyzerHomepage(): JSX.Element {
         });
 
         const data = await res.json();
+        setFileLink(data.secure_url);
         console.log("Uploaded file URL:", data.secure_url);
 
         // Wait for progress to complete
@@ -950,7 +986,7 @@ export default function EDAnalyzerHomepage(): JSX.Element {
                 />
               </div>
               <p className="progress-text">
-                {isAnalyzing ? 'Analyzing data...' : `Uploading... ${Math.round(uploadProgress)}%`}
+                {file_link ? 'Analyzing data...' : `Uploading... ${Math.round(uploadProgress)}%`}
               </p>
             </div>
           )}
@@ -987,7 +1023,133 @@ export default function EDAnalyzerHomepage(): JSX.Element {
             <p>Supported formats: CSV, Excel (.xlsx, .xls)</p>
           </div>
         </div>
+
       </div>
+
+        {/* Professional Footer */}
+        <footer className="professional-footer">
+          <div className="footer-content">
+            <div className="footer-section footer-brand">
+              <div className="footer-logo">
+                <BarChart3 className="footer-logo-icon" />
+                <span className="footer-brand-name">ED Analyzer</span>
+              </div>
+              <p className="footer-description">
+                Advanced data analytics platform for transforming raw datasets into actionable insights. 
+                Upload your data and discover hidden patterns with AI-powered analysis.
+              </p>
+              <div className="footer-tech-stack">
+                <span className="tech-badge">React</span>
+                <span className="tech-badge">TypeScript</span>
+                <span className="tech-badge">Python</span>
+                <span className="tech-badge">AI/ML</span>
+              </div>
+            </div>
+
+            <div className="footer-section footer-datasets">
+              <h4 className="footer-section-title">Sample Datasets</h4>
+              <div className="footer-dataset-links">
+                <a 
+                  href="https://res.cloudinary.com/dtu8mgezf/raw/upload/v1754835451/ft7munl6xfizbzsbjzug.csv" 
+                  download
+                  className="footer-dataset-link"
+                >
+                  <svg className="dataset-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                  </svg>
+                  <div className="dataset-content">
+                    <span className="dataset-title">Sales Analytics</span>
+                    <span className="dataset-subtitle">E-commerce sales data • 12K rows</span>
+                  </div>
+                </a>
+                
+                <a 
+                  href="https://res.cloudinary.com/dtu8mgezf/raw/upload/v1754835540/hf5wovgm8vzbpjtfhloj.csv" 
+                  download
+                  className="footer-dataset-link"
+                >
+                  <svg className="dataset-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                  </svg>
+                  <div className="dataset-content">
+                    <span className="dataset-title">Customer Behavior</span>
+                    <span className="dataset-subtitle">User interaction patterns • 8.5K rows</span>
+                  </div>
+                </a>
+
+                <a 
+                  href="https://res.cloudinary.com/dtu8mgezf/raw/upload/v1754835606/bcfvrccanrdionnovvhs.csv" 
+                  download
+                  className="footer-dataset-link"
+                >
+                  <svg className="dataset-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                  </svg>
+                  <div className="dataset-content">
+                    <span className="dataset-title">Financial Metrics</span>
+                    <span className="dataset-subtitle">Stock market data • 15K rows</span>
+                  </div>
+                </a>
+              </div>
+              
+              <button className="explore-datasets-btn">
+                <Database className="explore-icon" />
+                <span>Explore More Datasets</span>
+              </button>
+            </div>
+
+            <div className="footer-section footer-connect">
+              <h4 className="footer-section-title">Connect & Contribute</h4>
+              <div className="footer-social-links">
+                <a 
+                  href="https://github.com/r4kno/EDAnalyzer" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="footer-social-link github-link"
+                >
+                  <svg className="social-icon github-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                  </svg>
+                  <div className="link-content">
+                    <span className="link-title">GitHub</span>
+                    <span className="link-subtitle">View source & contribute</span>
+                  </div>
+                </a>
+
+                <a href="mailto:onkargupta0864@gmail.com" className="footer-social-link email-link">
+                  <svg className="social-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+                  </svg>
+                  <div className="link-content">
+                    <span className="link-title">Email</span>
+                    <span className="link-subtitle">onkargupta0864@gmail.com</span>
+                  </div>
+                </a>
+
+                <a href="" className="footer-social-link feedback-link">
+                  <svg className="social-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+                  </svg>
+                  <div className="link-content">
+                    <span className="link-title">Feedback</span>
+                    <span className="link-subtitle">Share your thoughts</span>
+                  </div>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div className="footer-bottom">
+            <div className="footer-bottom-content">
+              <div className="footer-copyright">
+                <p>&copy; {new Date().getFullYear()} ED Analyzer. Built with ❤️ for data enthusiasts.</p>
+              </div>
+              <div className="footer-version">
+                <span className="version-badge">v1.0.0</span>
+              </div>
+            </div>
+          </div>
+        </footer>
     </div>
   );
 }
