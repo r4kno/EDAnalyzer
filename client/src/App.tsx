@@ -2,6 +2,7 @@ import React, { useState, useEffect, type JSX } from 'react';
 import { Upload, BarChart3, TrendingUp, Database, FileSpreadsheet, Zap, MessageSquare, Download } from 'lucide-react';
 import jsPDF from 'jspdf';
 import './App.css';
+import { Analytics } from '@vercel/analytics/react';
 
 interface FloatingElement {
   id: number;
@@ -794,6 +795,7 @@ export default function EDAnalyzerHomepage(): JSX.Element {
 
   return (
     <div className="app-container w-screen">
+      <Analytics />
       {/* Animated Background Elements */}
       <div className="floating-bg">
         {floatingElements.map((element) => (
