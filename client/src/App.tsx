@@ -861,6 +861,8 @@ export default function EDAnalyzerHomepage(): JSX.Element {
           </div>
         </div>
 
+       
+
         {/* Upload Section */}
         <div className="upload-container">
           <div 
@@ -960,6 +962,23 @@ export default function EDAnalyzerHomepage(): JSX.Element {
           <div className="formats-info">
             <p>Supported formats: CSV, Excel (.xlsx, .xls)</p>
           </div>
+
+           {/* Sample Data Notice */}
+        <div className="sample-data-notice" style={{
+         
+        }}>
+          
+          <div className="notice-content" style={{
+            background: 'rgba(78, 78, 78, 0.8)',
+            borderRadius: '8px',
+            marginTop: '8px',
+            padding: '12px 12px',
+          }}>
+            <p className="notice-text">
+              Don't have data ready? Download sample datasets below to get started
+            </p>
+          </div>
+        </div>
 
           {/* Error Message Display */}
           {error && (
