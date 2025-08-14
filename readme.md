@@ -19,22 +19,7 @@ Advanced data analytics platform for transforming raw datasets into actionable i
 
 ## 🏗️ Architecture
 
-### Frontend (React + TypeScript)
-- **Framework**: React 18 with TypeScript
-- **Build Tool**: Vite for fast development and building
-- **Styling**: Custom CSS with modern design patterns
-- **State Management**: React hooks for local state
-- **PDF Generation**: jsPDF for report exports
-- **Icons**: Lucide React for consistent iconography
 
-### Backend (Python + Flask)
-- **Framework**: Flask for lightweight web API
-- **Data Processing**: Pandas for data manipulation
-- **Visualization**: Matplotlib/Seaborn for chart generation
-- **File Handling**: Support for CSV and Excel formats
-- **Environment**: Virtual environment for dependency isolation
-
-```
 ┌─────────────────┐    HTTP/REST API    ┌─────────────────┐
 │   React Client  │◄──────────────────►│  Flask Server   │
 │                 │                     │                 │
