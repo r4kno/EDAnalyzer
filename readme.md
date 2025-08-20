@@ -17,18 +17,6 @@ Advanced data analytics platform for transforming raw datasets into actionable i
 - **Real-time Progress Tracking**: Live updates during data processing
 - **Responsive Design**: Modern UI that works on all devices
 
-## 🏗️ Architecture
-
-
-┌─────────────────┐    HTTP/REST API    ┌─────────────────┐
-│   React Client  │◄──────────────────►│  Flask Server   │
-│                 │                     │                 │
-│  • File Upload  │                     │  • Data Analysis│
-│  • Visualizations│                     │  • EDA Processing│
-│  • PDF Reports  │                     │  • Chart Generation│
-│  • Progress UI  │                     │  • File Processing│
-└─────────────────┘                     └─────────────────┘
-```
 
 ## 📁 Project Structure
 
@@ -37,7 +25,6 @@ ED Analyzer/
 ├── client/                 # React Frontend
 │   ├── src/
 │   │   ├── App.tsx        # Main application component
-│   │   ├── App_base.tsx   # Base component template
 │   │   ├── App.css        # Application styles
 │   │   ├── main.tsx       # React entry point
 │   │   └── assets/        # Static assets
