@@ -1074,7 +1074,7 @@ export default function EDAnalyzerHomepage(): JSX.Element {
               <h4 className="footer-section-title">Connect & Contribute</h4>
               <div className="footer-social-links">
                 <a 
-                  href="https://ed-analyzer.vercel.app/" 
+                  href="https://github.com/r4kno/EDAnalyzer" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="footer-social-link github-link"
