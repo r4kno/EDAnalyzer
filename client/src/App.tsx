@@ -58,7 +58,7 @@ const ResultsView: React.FC<{
         pdf.setTextColor(100, 100, 100);
         
         pdf.textWithLink('ED Analyzer', margin, pageHeight - 8, {
-          url: 'https://github.com/r4kno/EDAnalyzer'
+          url: 'https://ed-analyzer.vercel.app'
         });
 
         pdf.text(`Page ${pageNum}`, pageWidth - margin - 15, pageHeight - 8);
@@ -131,7 +131,7 @@ const ResultsView: React.FC<{
         ['Original Data', `${results.original_shape[0]} rows × ${results.original_shape[1]} columns`],
         ['Cleaned Data', `${results.cleaned_shape[0]} rows × ${results.cleaned_shape[1]} columns`],
         ['Data Retention', `${Math.round(((results.cleaned_shape[0] / results.original_shape[0]) * 100))}%`],
-        ['AI Enhancement', results.ai_analysis_used ? 'Enabled' : 'Standard Analysis']
+        ['AI Enhancement', results.ai_used ? 'True' : 'Standard Analysis']
       ];
 
       pdf.setFontSize(10);
@@ -379,8 +379,8 @@ const ResultsView: React.FC<{
             {results.message}
           </p>
 
-          <div className={`results-ai-status-badge ${results.ai_analysis_used ? 'ai-enabled' : 'ai-disabled'}`}>
-            {results.ai_analysis_used ? (
+          <div className={`results-ai-status-badge ${results.ai_used ? 'ai-enabled' : 'ai-disabled'}`}>
+            {results.ai_used ? (
               <>
                 <span className="ai-icon">🤖</span>
                 AI-Enhanced Analysis

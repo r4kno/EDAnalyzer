@@ -13,14 +13,22 @@ import google.generativeai as genai
 import json
 import os
 
-# Configure Gemini API with error handling
-try:
-    genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-    model = genai.GenerativeModel('gemini-2.5-flash')  # Updated model name
-except Exception as e:
-    print(f"Gemini API setup failed: {e}")
-    model = None
+# Configure Gemini API
+model = None
+ai_available = False
 
+try:
+    api_key = os.getenv('GEMINI_API_KEY')
+    if api_key:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        # Test the model
+        test_response = model.generate_content("Test")
+        ai_available = True
+except Exception as e:
+    model = None
+    ai_available = False
+    
 def load_data_from_url(file_url):
     """Load data from Cloudinary URL"""
     try:
@@ -37,175 +45,96 @@ def load_data_from_url(file_url):
         print(f"Error loading data: {e}")
         return None
 
-def smart_type_detection(df, column):
-    """Intelligently detect and suggest column types"""
-    sample_values = df[column].dropna().astype(str).head(100)
-    
-    patterns = {
-        'date': [
-            r'\d{4}-\d{2}-\d{2}',  # YYYY-MM-DD
-            r'\d{2}/\d{2}/\d{4}',  # MM/DD/YYYY
-            r'\d{2}-\d{2}-\d{4}',  # DD-MM-YYYY
-        ],
-        'price': [
-            r'^\$?\d+\.?\d*$',     # $123.45 or 123.45
-            r'^\d+,\d{3}',         # 1,234
-        ],
-        'phone': [r'\d{3}-\d{3}-\d{4}', r'\(\d{3}\)\s?\d{3}-\d{4}'],
-        'email': [r'^[^@]+@[^@]+\.[^@]+$'],
-    }
-    
-    detected_types = []
-    
-    for type_name, pattern_list in patterns.items():
-        matches = 0
-        for pattern in pattern_list:
-            matches += sample_values.str.match(pattern).sum()
-        
-        match_rate = matches / len(sample_values)
-        if match_rate > 0.7:  # 70% match threshold
-            detected_types.append((type_name, match_rate))
-    
-    # Check for categorical (low cardinality)
-    if df[column].nunique() / len(df[column]) < 0.1:
-        detected_types.append(('categorical', df[column].nunique() / len(df[column])))
-    
-    return detected_types
-
-def smart_column_transformer(df, column, target_type, confidence_threshold=0.8):
-    """Universal column transformer with validation"""
-    
-    transformers = {
-        'datetime': [
-            lambda x: pd.to_datetime(x, errors='coerce'),
-            lambda x: pd.to_datetime(x, format='%Y-%m-%d', errors='coerce'),
-            lambda x: pd.to_datetime(x, format='%m/%d/%Y', errors='coerce'),
-        ],
-        'numeric': [
-            lambda x: pd.to_numeric(x.astype(str).str.replace(r'[$,]', '', regex=True), errors='coerce'),
-            lambda x: pd.to_numeric(x, errors='coerce'),
-        ],
-        'categorical': [
-            lambda x: x.astype('category'),
-        ]
-    }
-    
-    original_column = df[column].copy()
-    
-    for transformer in transformers.get(target_type, []):
-        try:
-            converted = transformer(df[column])
-            success_rate = (converted.notna().sum() / len(converted))
-            
-            if success_rate >= confidence_threshold:
-                return converted, success_rate
-        except Exception as e:
-            continue
-    
-    return original_column, 0  # No successful conversion
-
 class SmartDataCleaner:
     def __init__(self, df, user_context=""):
         self.df = df.copy()
         self.original_df = df.copy()
         self.cleaning_report = {}
         self.user_context = user_context
-        self.ai_used = False  # Track if AI was used
+        self.ai_used = False
     
     def auto_clean(self):
         """AI-guided adaptive cleaning based on data characteristics"""
-        # Get AI recommendations for cleaning strategy
         cleaning_strategy = self.get_ai_cleaning_strategy()
-        
-        # Apply recommended cleaning steps
         self.apply_ai_recommendations(cleaning_strategy)
-        
-        return self.df, self.cleaning_report, self.ai_used  # Return AI usage flag
+        return self.df, self.cleaning_report, self.ai_used
     
     def get_ai_cleaning_strategy(self):
         """Get AI recommendations for data cleaning"""
         if model is None:
-            print("AI model not available, using fallback strategy")
             self.ai_used = False
             return self.fallback_strategy()
         
         try:
-            # Prepare data context for AI
-            data_context = self.prepare_data_context()
+            context = self.prepare_data_context()
             
             prompt = f"""
-            You are a data science expert. Analyze this dataset and provide specific cleaning recommendations.
-
+            Analyze this dataset and provide cleaning recommendations as valid JSON:
+            
             Dataset Context:
-            {data_context}
-
+            {context}
+            
             User Context: {self.user_context}
-
-            Please provide recommendations in the following JSON format:
+            
+            Return ONLY a JSON object with this structure:
             {{
-                "missing_data_strategy": {{
-                    "column_name": {{
-                        "action": "fill_with_mode|fill_with_median|fill_with_mean|drop_column|leave_empty|custom_value",
-                        "reasoning": "explanation for this choice",
-                        "custom_value": "only if action is custom_value"
-                    }}
-                }},
-                "outlier_strategy": {{
-                    "column_name": {{
-                        "action": "remove|keep|cap_at_percentile",
-                        "reasoning": "explanation",
-                        "percentile": "only if capping"
-                    }}
-                }},
-                "type_conversions": {{
-                    "column_name": {{
-                        "target_type": "datetime|categorical|numeric",
-                        "reasoning": "explanation"
-                    }}
-                }},
-                "general_recommendations": ["list of general cleaning suggestions"]
+                "missing_data_strategy": {{"column_name": {{"action": "fill_with_median", "reasoning": "explanation"}}}},
+                "outlier_strategy": {{"column_name": {{"action": "remove", "reasoning": "explanation"}}}},
+                "type_conversions": {{"column_name": {{"target_type": "datetime", "reasoning": "explanation"}}}},
+                "general_recommendations": ["recommendation1", "recommendation2"]
             }}
-
-            Consider the semantic meaning of columns and business logic. For example:
-            - Date columns with missing values might indicate ongoing/open cases
-            - ID columns should not be filled
-            - Status columns might have meaningful empty states
+            
+            Available actions for missing data: fill_with_median, fill_with_mean, fill_with_mode, custom_value, leave_empty, drop_column
+            Available actions for outliers: remove, cap_at_percentile, keep
+            Available target types: datetime, categorical, numeric
             """
             
             response = model.generate_content(prompt)
+            
             # Extract JSON from response
             json_match = re.search(r'\{.*\}', response.text, re.DOTALL)
             if json_match:
-                self.ai_used = True  # AI successfully used
-                return json.loads(json_match.group())
-            self.ai_used = False
-            return self.fallback_strategy()
+                strategy = json.loads(json_match.group())
+                self.ai_used = True
+                return strategy
+            else:
+                self.ai_used = False
+                return self.fallback_strategy()
+                
         except Exception as e:
             print(f"AI recommendation failed: {e}")
             self.ai_used = False
             return self.fallback_strategy()
     
     def prepare_data_context(self):
-        """Prepare dataset context for AI analysis"""
+        """Prepare comprehensive data context for AI analysis"""
         context = {
             "shape": self.df.shape,
-            "columns": {}
+            "columns": {},
+            "sample_data": self.df.head(3).to_dict('records')
         }
         
         for col in self.df.columns:
-            try:
-                context["columns"][col] = {
-                    "type": str(self.df[col].dtype),
-                    "missing_count": int(self.df[col].isnull().sum()),
-                    "missing_percentage": float(self.df[col].isnull().sum() / len(self.df) * 100),
-                    "unique_values": int(self.df[col].nunique()),
-                    "sample_values": [str(x) for x in self.df[col].dropna().head(5).tolist()]
-                }
-            except Exception as e:
-                context["columns"][col] = {
-                    "type": str(self.df[col].dtype),
-                    "error": f"Could not process column: {str(e)}"
-                }
+            col_info = {
+                "dtype": str(self.df[col].dtype),
+                "null_count": int(self.df[col].isnull().sum()),
+                "null_percentage": float(self.df[col].isnull().sum() / len(self.df) * 100),
+                "unique_count": int(self.df[col].nunique()),
+                "sample_values": [str(x) for x in self.df[col].dropna().head(5).tolist()]
+            }
+            
+            # Add summary stats for numeric columns
+            if pd.api.types.is_numeric_dtype(self.df[col]):
+                col_info.update({
+                    "mean": float(self.df[col].mean()) if not self.df[col].isnull().all() else None,
+                    "std": float(self.df[col].std()) if not self.df[col].isnull().all() else None,
+                    "min": float(self.df[col].min()) if not self.df[col].isnull().all() else None,
+                    "max": float(self.df[col].max()) if not self.df[col].isnull().all() else None,
+                    "q25": float(self.df[col].quantile(0.25)) if not self.df[col].isnull().all() else None,
+                    "q75": float(self.df[col].quantile(0.75)) if not self.df[col].isnull().all() else None
+                })
+            
+            context["columns"][col] = col_info
         
         return json.dumps(context, indent=2, default=str)
     
@@ -230,7 +159,7 @@ class SmartDataCleaner:
         self.remove_duplicates()
     
     def apply_missing_data_strategy(self, col, action_info):
-        """Apply specific missing data strategy for a column - FIXED pandas warning"""
+        """Apply specific missing data strategy for a column"""
         action = action_info.get("action", "fill_with_mode")
         missing_before = self.df[col].isnull().sum()
         
@@ -241,7 +170,6 @@ class SmartDataCleaner:
             if action == "fill_with_mode":
                 if not self.df[col].mode().empty:
                     fill_value = self.df[col].mode()[0]
-                    # Fix pandas warning - use .loc instead of .fillna(inplace=True)
                     self.df.loc[self.df[col].isnull(), col] = fill_value
                     self.cleaning_report[col] = f"Filled {missing_before} missing values with mode ({fill_value}) - {action_info.get('reasoning', '')}"
         
@@ -349,54 +277,50 @@ class SmartDataCleaner:
         removed = initial_rows - final_rows
         self.cleaning_report['duplicates'] = f"Removed {removed} duplicate rows"
 
-# Add the missing AI visualization functions
 def get_ai_visualization_recommendations(df, user_context=""):
     """Get AI recommendations for which visualizations to create"""
-    
     if model is None:
         return get_fallback_visualization_plan(df)
     
     try:
-        # Prepare data context
-        data_context = prepare_viz_context(df)
+        context = prepare_viz_context(df)
         
         prompt = f"""
-        You are a data visualization expert. Analyze this dataset and recommend the most insightful visualizations.
-
-        Dataset Context:
-        {data_context}
-
+        Analyze this dataset and recommend the most insightful visualizations as valid JSON:
+        
+        Dataset: {context}
         User Context: {user_context}
-
-        Please provide recommendations in JSON format:
+        
+        Return ONLY a JSON object with this structure:
         {{
             "recommended_plots": [
                 {{
-                    "plot_type": "correlation|distribution|categorical|time_series|comparison|custom",
-                    "columns": ["column1", "column2"],
+                    "plot_type": "correlation|distribution|scatter|box|bar|line|heatmap",
+                    "columns": ["col1", "col2"],
                     "title": "Plot Title",
-                    "description": "Why this plot is valuable",
+                    "description": "Why this plot is useful for this specific dataset",
                     "priority": "high|medium|low"
                 }}
             ],
             "key_insights_to_explore": ["insight1", "insight2"],
-            "suggested_groupings": ["column combinations that might reveal patterns"]
+            "suggested_groupings": [["col1", "col2"]]
         }}
-
-        Focus on:
-        1. Most meaningful relationships and patterns
-        2. Business-relevant insights
-        3. Data quality issues to highlight
-        4. Anomalies worth investigating
+        
+        Focus on the most relevant visualizations for this specific dataset and user context.
         """
         
         response = model.generate_content(prompt)
+        
+        # Extract JSON from response
         json_match = re.search(r'\{.*\}', response.text, re.DOTALL)
         if json_match:
-            return json.loads(json_match.group())
-        return get_fallback_visualization_plan(df)
+            recommendations = json.loads(json_match.group())
+            return recommendations
+        else:
+            return get_fallback_visualization_plan(df)
+            
     except Exception as e:
-        print(f"AI visualization recommendation failed: {e}")
+        print(f"AI visualization recommendations failed: {e}")
         return get_fallback_visualization_plan(df)
 
 def prepare_viz_context(df):
@@ -439,12 +363,12 @@ def get_fallback_visualization_plan(df):
                 "priority": "high"
             }
         ],
-        "key_insights_to_explore": ["Basic data patterns"],
+        "key_insights_to_explore": ["Basic data patterns", "Distribution analysis", "Correlation insights"],
         "suggested_groupings": []
     }
 
 def generate_ai_guided_visualizations(df, cleaned_df, user_context=""):
-    """Generate visualizations based on AI recommendations or fallback to comprehensive plots"""
+    """Generate visualizations based on AI recommendations with comprehensive fallback"""
     
     plt.style.use('dark_background')
     sns.set_palette("husl")
@@ -459,48 +383,27 @@ def generate_ai_guided_visualizations(df, cleaned_df, user_context=""):
         # Get AI recommendations
         viz_recommendations = get_ai_visualization_recommendations(cleaned_df, user_context)
         
-        # Check if AI was actually used for recommendations
+        # Check if AI was actually used
         if model is not None and viz_recommendations.get("recommended_plots"):
             ai_viz_used = True
-        
-        # Generate some AI-recommended plots if available
-        for rec in viz_recommendations.get("recommended_plots", []):
-            try:
-                plot_type = rec.get("plot_type")
-                columns = rec.get("columns", [])
-                title = rec.get("title", "Analysis")
-                
-                # Ensure columns exist in dataframe
-                valid_columns = [col for col in columns if col in cleaned_df.columns]
-                
-                if not valid_columns:
-                    continue
-                
-                if plot_type == "correlation" and len(valid_columns) > 1:
-                    numeric_cols = [col for col in valid_columns if cleaned_df[col].dtype in ['int64', 'float64']]
-                    if len(numeric_cols) > 1:
-                        plots['ai_correlation'] = create_correlation_plot(cleaned_df[numeric_cols], title)
-            except Exception as e:
-                print(f"Error creating AI plot: {e}")
-                continue
     
     except Exception as e:
         print(f"AI visualization failed: {e}")
         viz_recommendations = get_fallback_visualization_plan(cleaned_df)
         ai_viz_used = False
     
-    # Always add comprehensive fallback plots (your original good plots)
+    # Always add comprehensive plots
     try:
         # Missing Data Heatmap
         if df.isnull().sum().sum() > 0:
             plots['missing_data'] = create_missing_data_plot(df)
         
-        # Correlation Matrix (for numerical columns)
+        # Correlation Matrix
         numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
         if len(numeric_cols) > 1:
             plots['correlation'] = create_correlation_plot(cleaned_df[numeric_cols])
         
-        # Distribution plots for numerical columns
+        # Distribution plots
         if len(numeric_cols) > 0:
             plots['distributions'] = create_distribution_plots(cleaned_df[numeric_cols])
         
@@ -510,77 +413,9 @@ def generate_ai_guided_visualizations(df, cleaned_df, user_context=""):
             plots['categorical'] = create_categorical_plots(cleaned_df[categorical_cols])
             
     except Exception as e:
-        print(f"Error creating fallback plots: {e}")
+        print(f"Error creating plots: {e}")
     
     return plots, viz_recommendations, ai_viz_used
-
-# Enhanced data summary and cleaning functions
-def get_data_summary(df):
-    """Enhanced data summary with smart profiling"""
-    try:
-        basic_summary = {
-            'shape': df.shape,
-            'columns': df.columns.tolist(),
-            'data_types': {str(k): str(v) for k, v in df.dtypes.items()},
-            'missing_values': {str(k): int(v) for k, v in df.isnull().sum().items()},
-            'memory_usage': f"{df.memory_usage(deep=True).sum() / 1024:.2f} KB"
-        }
-        
-        # Add smart profiling
-        profile = analyze_dataset_characteristics(df)
-        pipeline = build_eda_pipeline(df)
-        
-        enhanced_summary = {
-            **basic_summary,
-            'data_characteristics': profile,
-            'recommended_pipeline': pipeline
-        }
-        
-        return enhanced_summary
-    except Exception as e:
-        print(f"Error in get_data_summary: {e}")
-        return {
-            'shape': df.shape,
-            'columns': df.columns.tolist(),
-            'error': str(e)
-        }
-
-def analyze_dataset_characteristics(df):
-    """Profile dataset to understand its characteristics"""
-    try:
-        profile = {
-            'shape': df.shape,
-            'has_numerical': len(df.select_dtypes(include=[np.number]).columns) > 0,
-            'has_categorical': len(df.select_dtypes(include=['object', 'category']).columns) > 0,
-            'has_datetime': len(df.select_dtypes(include=['datetime64']).columns) > 0,
-            'missing_data_pct': float((df.isnull().sum().sum() / (df.shape[0] * df.shape[1])) * 100),
-            'duplicate_rows': int(df.duplicated().sum()),
-            'column_types': {str(k): str(v) for k, v in df.dtypes.items()}
-        }
-        return profile
-    except Exception as e:
-        print(f"Error in analyze_dataset_characteristics: {e}")
-        return {'error': str(e)}
-
-def build_eda_pipeline(df, user_description=""):
-    """Build adaptive EDA pipeline based on data characteristics"""
-    try:
-        profile = analyze_dataset_characteristics(df)
-        
-        pipeline = {
-            'cleaning_steps': ['remove_duplicates', 'handle_missing_values', 'outlier_detection'],
-            'analysis_steps': ['basic_info', 'missing_data_analysis', 'correlation_analysis', 'distribution_plots'],
-            'warnings': [],
-            'data_profile': profile
-        }
-        
-        if profile.get('missing_data_pct', 0) > 50:
-            pipeline['warnings'].append("High percentage of missing data - data quality may be poor")
-        
-        return pipeline
-    except Exception as e:
-        print(f"Error in build_eda_pipeline: {e}")
-        return {'error': str(e)}
 
 def smart_data_cleaning(df, user_context=""):
     """Main function that uses AI-guided SmartDataCleaner with fallback"""
@@ -591,10 +426,10 @@ def smart_data_cleaning(df, user_context=""):
     except Exception as e:
         print(f"Smart cleaning failed, using basic cleaning: {e}")
         cleaned_df, report = basic_data_cleaning(df)
-        return cleaned_df, report, False  # AI not used
+        return cleaned_df, report, False
 
 def basic_data_cleaning(df):
-    """Basic cleaning logic as fallback - FIXED pandas warnings"""
+    """Basic cleaning logic as fallback"""
     try:
         cleaned_df = df.copy()
         cleaning_report = {}
@@ -605,19 +440,16 @@ def basic_data_cleaning(df):
         duplicates_removed = initial_rows - len(cleaned_df)
         cleaning_report['duplicates'] = f"Removed {duplicates_removed} duplicate rows"
         
-        # Handle missing values intelligently
+        # Handle missing values
         for col in cleaned_df.columns:
             missing_count = cleaned_df[col].isnull().sum()
             if missing_count > 0:
                 try:
                     if cleaned_df[col].dtype in ['int64', 'float64']:
-                        # Use median for numerical data
                         fill_value = cleaned_df[col].median()
-                        # Fix pandas warning - use .loc instead of .fillna(inplace=True)
                         cleaned_df.loc[cleaned_df[col].isnull(), col] = fill_value
                         cleaning_report[col] = f"Filled {missing_count} missing values with median ({fill_value:.2f})"
                     else:
-                        # Use mode for categorical data
                         if not cleaned_df[col].mode().empty:
                             fill_value = cleaned_df[col].mode()[0]
                             cleaned_df.loc[cleaned_df[col].isnull(), col] = fill_value
@@ -625,40 +457,118 @@ def basic_data_cleaning(df):
                 except Exception as e:
                     print(f"Error handling missing values in {col}: {e}")
         
-        # Handle outliers for numerical columns
-        numeric_cols = cleaned_df.select_dtypes(include=[np.number]).columns
-        for col in numeric_cols:
-            try:
-                q1 = cleaned_df[col].quantile(0.25)
-                q3 = cleaned_df[col].quantile(0.75)
-                iqr = q3 - q1
-                lower_bound = q1 - 1.5 * iqr
-                upper_bound = q3 + 1.5 * iqr
-                
-                outliers = ((cleaned_df[col] < lower_bound) | (cleaned_df[col] > upper_bound))
-                outlier_count = outliers.sum()
-                
-                # Only remove if outliers are less than 5% of data
-                if outlier_count > 0 and outlier_count / len(cleaned_df) < 0.05:
-                    cleaned_df = cleaned_df[~outliers].reset_index(drop=True)
-                    cleaning_report[f"{col}_outliers"] = f"Removed {outlier_count} outliers"
-            except Exception as e:
-                print(f"Error handling outliers in {col}: {e}")
-        
         return cleaned_df, cleaning_report
     
     except Exception as e:
         print(f"Basic cleaning failed: {e}")
         return df, {'error': f'Cleaning failed: {str(e)}'}
 
-# Your original good visualization functions
+def get_data_summary(df):
+    """Enhanced data summary"""
+    try:
+        return {
+            'shape': df.shape,
+            'columns': df.columns.tolist(),
+            'data_types': {str(k): str(v) for k, v in df.dtypes.items()},
+            'missing_values': {str(k): int(v) for k, v in df.isnull().sum().items()},
+            'memory_usage': f"{df.memory_usage(deep=True).sum() / 1024:.2f} KB"
+        }
+    except Exception as e:
+        return {
+            'shape': df.shape,
+            'columns': df.columns.tolist(),
+            'error': str(e)
+        }
+
+def perform_eda_with_visualizations(df, user_context=""):
+    """Main EDA function"""
+    try:
+        # Step 1: Data Cleaning
+        cleaned_df, cleaning_report, ai_cleaning_used = smart_data_cleaning(df, user_context)
+        
+        # Step 2: Visualization Generation
+        plots, viz_recommendations, ai_viz_used = generate_ai_guided_visualizations(df, cleaned_df, user_context)
+        
+        # Step 3: Summary Generation
+        summary = get_data_summary(cleaned_df)
+        
+        ai_analysis_used = ai_cleaning_used or ai_viz_used
+        
+        return {
+            'cleaned_data': cleaned_df,
+            'cleaning_report': cleaning_report,
+            'summary': summary,
+            'visualizations': plots,
+            'ai_recommendations': viz_recommendations,
+            'ai_used': ai_analysis_used,
+            'ai_details': {
+                'cleaning_ai_used': ai_cleaning_used,
+                'visualization_ai_used': ai_viz_used
+            }
+        }
+    
+    except Exception as e:
+        print(f"Main EDA process failed: {e}")
+        return emergency_fallback_eda(df)
+
+def emergency_fallback_eda(df):
+    """Last resort EDA if everything fails"""
+    try:
+        cleaned_df, cleaning_report = basic_data_cleaning(df)
+        
+        plots = {}
+        plots['data_overview'] = create_data_overview_plot(df, cleaned_df)
+        
+        summary = {
+            'shape': cleaned_df.shape,
+            'columns': cleaned_df.columns.tolist(),
+            'data_types': {str(k): str(v) for k, v in cleaned_df.dtypes.items()},
+            'missing_values': {str(k): int(v) for k, v in cleaned_df.isnull().sum().items()},
+            'memory_usage': f"{cleaned_df.memory_usage(deep=True).sum() / 1024:.2f} KB"
+        }
+        
+        return {
+            'cleaned_data': cleaned_df,
+            'cleaning_report': cleaning_report,
+            'summary': summary,
+            'visualizations': plots,
+            'ai_recommendations': {
+                'recommended_plots': [],
+                'key_insights_to_explore': ['Emergency fallback analysis completed'],
+                'suggested_groupings': []
+            },
+            'ai_used': False,
+            'ai_details': {
+                'cleaning_ai_used': False,
+                'visualization_ai_used': False
+            }
+        }
+    except Exception as e:
+        print(f"Emergency fallback failed: {e}")
+        return {
+            'cleaned_data': df,
+            'cleaning_report': {'error': f'All analysis methods failed: {str(e)}'},
+            'summary': {'error': 'Summary generation failed'},
+            'visualizations': {},
+            'ai_recommendations': {
+                'recommended_plots': [],
+                'key_insights_to_explore': ['Analysis failed'],
+                'suggested_groupings': []
+            },
+            'ai_used': False,
+            'ai_details': {
+                'cleaning_ai_used': False,
+                'visualization_ai_used': False
+            }
+        }
+
+# Visualization Functions
 def create_data_overview_plot(original_df, cleaned_df):
     """Compare original vs cleaned data"""
     try:
         fig, axes = plt.subplots(2, 2, figsize=(12, 8))
         fig.suptitle('Data Cleaning Overview', fontsize=16, color='white')
         
-        # Shape comparison
         shapes = ['Original', 'Cleaned']
         rows = [original_df.shape[0], cleaned_df.shape[0]]
         cols = [original_df.shape[1], cleaned_df.shape[1]]
@@ -671,7 +581,6 @@ def create_data_overview_plot(original_df, cleaned_df):
         axes[0,1].set_title('Columns Count')
         axes[0,1].set_ylabel('Number of Columns')
         
-        # Missing values comparison
         original_missing = original_df.isnull().sum().sum()
         cleaned_missing = cleaned_df.isnull().sum().sum()
         
@@ -679,7 +588,6 @@ def create_data_overview_plot(original_df, cleaned_df):
         axes[1,0].set_title('Missing Values')
         axes[1,0].set_ylabel('Count')
         
-        # Data types distribution
         original_types = original_df.dtypes.value_counts()
         cleaned_types = cleaned_df.dtypes.value_counts()
         
@@ -754,7 +662,6 @@ def create_distribution_plots(df_numeric):
                 sns.histplot(df_numeric[col].dropna(), kde=True, ax=axes[i])
                 axes[i].set_title(f'Distribution of {col}', color='white')
         
-        # Hide empty subplots
         for i in range(len(df_numeric.columns), len(axes)):
             axes[i].set_visible(False)
         
@@ -782,7 +689,6 @@ def create_categorical_plots(df_categorical):
                 sns.barplot(x=top_categories.values, y=top_categories.index, ax=axes[i])
                 axes[i].set_title(f'Top Categories in {col}', color='white')
         
-        # Hide empty subplots
         for i in range(len(df_categorical.columns), len(axes)):
             axes[i].set_visible(False)
         
@@ -808,87 +714,3 @@ def plot_to_base64(fig):
         print(f"Error converting plot to base64: {e}")
         plt.close(fig)
         return ""
-
-def perform_eda_with_visualizations(df, user_context=""):
-    """Main EDA function that includes AI-guided analysis with robust fallbacks"""
-    
-    try:
-        # Clean the data with AI guidance (falls back to basic cleaning if AI fails)
-        cleaned_df, cleaning_report, ai_cleaning_used = smart_data_cleaning(df, user_context)
-        
-        # Generate visualizations (AI-guided with comprehensive fallback)
-        plots, viz_recommendations, ai_viz_used = generate_ai_guided_visualizations(df, cleaned_df, user_context)
-        
-        # Get summary
-        summary = get_data_summary(cleaned_df)
-        
-        # Determine overall AI usage
-        ai_analysis_used = ai_cleaning_used or ai_viz_used
-        
-        return {
-            'cleaned_data': cleaned_df,
-            'cleaning_report': cleaning_report,
-            'summary': summary,
-            'visualizations': plots,
-            'ai_recommendations': viz_recommendations,
-            'ai_analysis_used': ai_analysis_used,
-            'ai_details': {
-                'cleaning_ai_used': ai_cleaning_used,
-                'visualization_ai_used': ai_viz_used
-            }
-        }
-    
-    except Exception as e:
-        print(f"EDA failed completely, using emergency fallback: {e}")
-        return emergency_fallback_eda(df)
-
-def emergency_fallback_eda(df):
-    """Last resort EDA if everything fails"""
-    try:
-        cleaned_df, cleaning_report = basic_data_cleaning(df)
-        
-        plots = {}
-        plots['data_overview'] = create_data_overview_plot(df, cleaned_df)
-        
-        summary = {
-            'shape': cleaned_df.shape,
-            'columns': cleaned_df.columns.tolist(),
-            'data_types': {str(k): str(v) for k, v in cleaned_df.dtypes.items()},
-            'missing_values': {str(k): int(v) for k, v in cleaned_df.isnull().sum().items()},
-            'memory_usage': f"{cleaned_df.memory_usage(deep=True).sum() / 1024:.2f} KB"
-        }
-        
-        return {
-            'cleaned_data': cleaned_df,
-            'cleaning_report': cleaning_report,
-            'summary': summary,
-            'visualizations': plots,
-            'ai_recommendations': {
-                'recommended_plots': [],
-                'key_insights_to_explore': ['Emergency fallback analysis completed'],
-                'suggested_groupings': []
-            },
-            'ai_analysis_used': False,
-            'ai_details': {
-                'cleaning_ai_used': False,
-                'visualization_ai_used': False
-            }
-        }
-    except Exception as e:
-        print(f"Emergency fallback failed: {e}")
-        return {
-            'cleaned_data': df,
-            'cleaning_report': {'error': f'All analysis methods failed: {str(e)}'},
-            'summary': {'error': 'Summary generation failed'},
-            'visualizations': {},
-            'ai_recommendations': {
-                'recommended_plots': [],
-                'key_insights_to_explore': ['Analysis failed'],
-                'suggested_groupings': []
-            },
-            'ai_analysis_used': False,
-            'ai_details': {
-                'cleaning_ai_used': False,
-                'visualization_ai_used': False
-            }
-        }

@@ -1,10 +1,13 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from eda import load_data_from_url, perform_eda_with_visualizations
 from dotenv import load_dotenv
 import os
 
-load_dotenv()  # Load environment variables
+# Load environment variables FIRST
+load_dotenv()
+
+# Now import eda after env vars are loaded
+from eda import load_data_from_url, perform_eda_with_visualizations
 
 app = Flask(__name__)
 CORS(app)
@@ -21,10 +24,7 @@ def process_file():
             return jsonify({"error": "No file link provided"}), 400
         
         file_link = data['file_link']
-        analysis_request = data.get('analysis_request', '')  # User context for AI
-        
-        print(f"Processing file: {file_link}")
-        print(f"User context: {analysis_request}")
+        analysis_request = data.get('analysis_request', '')
         
         # Step 1: Load data from URL
         df = load_data_from_url(file_link)
@@ -35,7 +35,7 @@ def process_file():
         result = perform_eda_with_visualizations(df, analysis_request)
         
         # Determine message based on AI usage
-        ai_used = result.get('ai_analysis_used', False)
+        ai_used = result.get('ai_used', False)
         if ai_used:
             message = "Analysis complete with AI-guided insights! 🤖📊"
         else:
@@ -50,16 +50,14 @@ def process_file():
             "summary": result['summary'],
             "plots": result['visualizations'],
             "ai_insights": result['ai_recommendations'],
-            "ai_analysis_used": result['ai_analysis_used'],
+            "ai_used": result['ai_used'],
             "ai_details": result['ai_details'],
             "file_url": file_link
         })
         
     except Exception as e:
-        print(f"Error: {str(e)}")
         return jsonify({"error": f"Processing failed: {str(e)}"}), 500
-
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(host="0.0.0.0", port=port, debug=True)
