@@ -349,19 +349,44 @@ const ResultsView: React.FC<{
               <Upload className="back-icon" />
               New Analysis
             </button>
-            <button 
-              className="modern-back-btn"
-              onClick={generatePDF}
-              disabled={isGeneratingPDF}
-              style={{ 
-                background: isGeneratingPDF ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.1)',
-                borderColor: isGeneratingPDF ? 'rgba(16, 185, 129, 0.3)' : 'rgba(16, 185, 129, 0.3)',
-                color: isGeneratingPDF ? '#9ca3af' : '#10b981'
-              }}
-            >
-              <Download className="back-icon" />
-              {isGeneratingPDF ? 'Generating PDF...' : 'Download PDF'}
-            </button>
+            
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              {/* Download Cleaned Data Button */}
+              {results.cleaned_data_url && (
+                <a 
+                  href={results.cleaned_data_url}
+                  download
+                  style={{ textDecoration: 'none' }}
+                >
+                  <button 
+                    className="modern-back-btn"
+                    style={{ 
+                      background: 'rgba(168, 85, 247, 0.1)',
+                      borderColor: 'rgba(168, 85, 247, 0.3)',
+                      color: '#a855f7'
+                    }}
+                  >
+                    <Database className="back-icon" />
+                    Download Cleaned Data
+                  </button>
+                </a>
+              )}
+              
+              {/* Download PDF Button */}
+              <button 
+                className="modern-back-btn"
+                onClick={generatePDF}
+                disabled={isGeneratingPDF}
+                style={{ 
+                  background: isGeneratingPDF ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                  borderColor: isGeneratingPDF ? 'rgba(16, 185, 129, 0.3)' : 'rgba(16, 185, 129, 0.3)',
+                  color: isGeneratingPDF ? '#9ca3af' : '#10b981'
+                }}
+              >
+                <Download className="back-icon" />
+                {isGeneratingPDF ? 'Generating PDF...' : 'Download PDF'}
+              </button>
+            </div>
           </div>
           
           <div className="results-logo-container">

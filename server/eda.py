@@ -21,7 +21,7 @@ try:
     api_key = os.getenv('GEMINI_API_KEY')
     if api_key:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         # Test the model
         test_response = model.generate_content("Test")
         ai_available = True
@@ -289,6 +289,7 @@ def get_ai_visualization_recommendations(df, user_context=""):
         Analyze this dataset and recommend the most insightful visualizations as valid JSON:
         
         Dataset: {context}
+        if user context talks about any plot or relation between variables, include that plot for sure. Focus on user context and prioritize it
         User Context: {user_context}
         
         Return ONLY a JSON object with this structure:
