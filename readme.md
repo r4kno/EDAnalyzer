@@ -108,6 +108,7 @@ The application will be available at:
 - Drag and drop a CSV or Excel file onto the upload area
 - Or click to browse and select a file
 - Supported formats: `.csv`, `.xlsx`, `.xls`
+- Add context if need a targeted or specific analysis
 
 ### 2. Analysis Process
 - Click "Start Analysis" to begin processing
@@ -131,7 +132,7 @@ The application will be available at:
 
 ## 🔧 API Endpoints
 
-### POST `/analyze`
+### POST `/api/file`
 Analyze uploaded dataset and generate insights.
 
 **Request:**
@@ -182,7 +183,7 @@ Data analysis engine featuring:
 ### Frontend Stack
 - **React 18**: Modern React with hooks
 - **TypeScript**: Type-safe JavaScript
-- **Vite**: Next-generation build tool
+- **Vite**: Build tool
 - **jsPDF**: Client-side PDF generation
 - **Lucide React**: Beautiful icons
 
@@ -192,27 +193,10 @@ Data analysis engine featuring:
 - **Matplotlib/Seaborn**: Data visualization
 - **NumPy**: Numerical computing
 
-### Development Tools
-- **ESLint**: Code linting
+### Development Tool
 - **Git**: Version control
 - **npm**: Package management
 - **pip**: Python package management
-
-## 🚀 Deployment
-
-### Frontend (Vercel/Netlify)
-```bash
-cd client
-npm run build
-# Deploy dist/ folder
-```
-
-### Backend (Heroku/Railway)
-```bash
-cd server
-# Add Procfile: web: python app.py
-# Deploy with platform of choice
-```
 
 ## 📬 Contact
 
